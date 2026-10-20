@@ -8,7 +8,7 @@ import os
 from pathlib import Path
 
 from dotenv import load_dotenv
-from flask import Flask
+from flask import Flask, jsonify
 
 from . import auth, goals, recommendation, trainings
 from .models import db
@@ -42,6 +42,9 @@ def create_app(test_config=None):
         # Sitzungs-Cookie nicht an Anfragen von fremden Seiten mitsenden
         # (Schutz vor Cross-Site Request Forgery).
         SESSION_COOKIE_SAMESITE="Lax",
+        # Obergrenze für hochgeladene Dateien; ein Garmin-Export mit
+        # mehreren tausend Läufen ist deutlich kleiner.
+        MAX_CONTENT_LENGTH=5 * 1024 * 1024,
     )
     if test_config:
         app.config.update(test_config)
@@ -59,6 +62,10 @@ def create_app(test_config=None):
     @app.get("/")
     def index():
         return app.send_static_file("index.html")
+
+    @app.errorhandler(413)
+    def too_large(_error):
+        return jsonify(error="Die Datei ist zu gross (höchstens 5 MB)."), 413
 
     return app
 
