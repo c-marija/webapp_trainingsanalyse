@@ -78,6 +78,9 @@ Alle Dateien liegen in `src/app/`. Das Datenmodell steht vollständig in
 `garmin.py` wandelt Zeilen des Garmin-Exports in Felder des Modells um und
 kommt ohne Datenbank und Flask aus, damit es sich isoliert testen lässt.
 `validation.py` enthält Eingabeprüfungen, die mehrere Blueprints brauchen.
+`ki_service.py` ruft Gemini über die REST-API mit `urllib` aus der
+Standardbibliothek auf — ohne zusätzliche Dependency. Schlüssel und Modell
+kommen aus den Umgebungsvariablen `GEMINI_API_KEY` und `GEMINI_MODEL`.
 
 **Tabellen**
 
