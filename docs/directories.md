@@ -22,6 +22,11 @@ what their purpose is and how you can use them.
    `docs/deployment-azure-app-service-flask.md` contains optional deployment
    notes for teams that choose Flask and deployment to Azure App Service with
    the built-in Python runtime.
+   `docs/architektur.md` shows the layered architecture of the application
+   as a Mermaid diagram and maps its building blocks to the requirements.
+   `docs/anforderungen.md` holds the business requirements for the
+   application, derived from the frontend prototype and the architecture
+   overview.
    The folder `docs/lerntagebuch` is the team's learning journal: it records
    what we learned and why we worked the way we did, organised by topic. It
    complements `docs/decisions`, which holds the formal decision records.
@@ -31,6 +36,9 @@ what their purpose is and how you can use them.
 In the root directory, the following files are potentially relevant for direct
 modification by a developer:
 
+ * `AGENTS.md` contains the project instructions for coding agents: stack,
+   structure, commands, conventions and boundaries. `CLAUDE.md` only imports
+   it, so that every tool follows the same rules.
  * `.gitignore` contains a list of file and directory patterns that should be
    ignored by the version control system Git and should never be versioned.
  * `MANUAL.md` contains information related to this project template. They are
