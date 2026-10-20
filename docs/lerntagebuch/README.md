@@ -38,7 +38,8 @@ tragen sie hier nach.
 Jeder Eintrag ist eine `###`-Überschrift mit **Datum, Titel und Kürzel** der
 Person. Neue Einträge kommen **unten** an die Datei.
 
-Kürzel: `SG` = Simon Gnos, weitere bitte hier ergänzen.
+Kürzel: `SG` = Simon Gnos, `Team` = gemeinsamer Eintrag, weitere bitte hier
+ergänzen.
 
 ```markdown
 ### 2026-10-20 — Kurzer, aussagekräftiger Titel (SG)
