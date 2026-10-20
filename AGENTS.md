@@ -36,6 +36,7 @@ src/app/
   auth.py             Blueprint /api/auth
   trainings.py        Blueprint /api/trainings
   garmin.py           Auswertung des Garmin-Exports, ohne Datenbank
+  validation.py       gemeinsame Eingabeprüfungen (Zahl, Zeit h:mm:ss)
   goals.py            Blueprint /api/goals
   recommendation.py   Blueprint /api/recommendation
   ki_service.py       einzige Stelle, die das Sprachmodell aufruft

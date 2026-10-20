@@ -77,6 +77,7 @@ Alle Dateien liegen in `src/app/`. Das Datenmodell steht vollständig in
 `models.py`, der Anfangsbestand (Demo-Konten, Rückfragen) in `seed.py`.
 `garmin.py` wandelt Zeilen des Garmin-Exports in Felder des Modells um und
 kommt ohne Datenbank und Flask aus, damit es sich isoliert testen lässt.
+`validation.py` enthält Eingabeprüfungen, die mehrere Blueprints brauchen.
 
 **Tabellen**
 

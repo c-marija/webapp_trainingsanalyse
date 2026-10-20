@@ -3,7 +3,6 @@
 Jede Abfrage ist auf das angemeldete Konto eingeschränkt (FA-A5).
 """
 
-import re
 from datetime import datetime
 
 from flask import Blueprint, jsonify, request
@@ -11,6 +10,7 @@ from flask_login import current_user, login_required
 
 from . import garmin
 from .models import Training, db
+from .validation import is_number, parse_time
 
 bp = Blueprint("trainings", __name__, url_prefix="/api/trainings")
 
@@ -24,13 +24,6 @@ SORT_COLUMNS = {
     "avg_hr": Training.avg_hr,
     "total_ascent_m": Training.total_ascent_m,
 }
-
-TIME_PATTERN = re.compile(r"^(\d{1,2}:)?\d{1,2}:\d{2}$")
-
-
-def is_number(value):
-    # bool ist in Python eine Unterklasse von int; true darf nicht als 1 gelten.
-    return isinstance(value, int | float) and not isinstance(value, bool)
 
 
 def training_json(t):
@@ -95,9 +88,8 @@ def create_training():
     if not is_number(distance_km) or not 0.5 <= distance_km <= 100:
         return error("Die Distanz muss zwischen 0,5 und 100 km liegen.")
 
-    time = str(data.get("time") or "").strip()
-    moving_time_s = garmin.parse_duration(time) if TIME_PATTERN.match(time) else None
-    if not moving_time_s:
+    moving_time_s = parse_time(data.get("time"))
+    if moving_time_s is None:
         return error("Die Zeit muss im Format h:mm:ss oder mm:ss angegeben werden.")
 
     avg_hr = data.get("avg_hr")
