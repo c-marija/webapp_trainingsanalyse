@@ -16,7 +16,7 @@ def test_index_serves_prototype(client):
         assert b"PaceMaker" in response.data
 
 
-def test_init_db_creates_two_demo_users_with_hashed_passwords(app):
+def test_init_db_creates_two_demo_users_with_hashed_passwords(app_context):
     """FA-A1: zwei Demo-Konten, Passwort nur als Hash."""
     users = db.session.scalars(db.select(User).order_by(User.id)).all()
     assert len(users) == 2
@@ -26,7 +26,7 @@ def test_init_db_creates_two_demo_users_with_hashed_passwords(app):
         assert check_password_hash(user.password_hash, demo["password"])
 
 
-def test_init_db_creates_goal_questions_in_order(app):
+def test_init_db_creates_goal_questions_in_order(app_context):
     """FA-Z1 / FA-Z5: vier Rückfragen mit Typ und Optionen aus der Datenbank."""
     questions = db.session.scalars(
         db.select(GoalQuestion).order_by(GoalQuestion.position)
@@ -57,13 +57,13 @@ def test_init_db_creates_goal_questions_in_order(app):
     assert restrictions.max_length == 200
 
 
-def test_init_db_can_run_twice(app):
+def test_init_db_can_run_twice(app_context):
     """ADR 0003: Neuaufbau ist der Weg bei Änderungen am Datenmodell."""
     init_db()
     assert db.session.scalar(db.select(db.func.count(User.id))) == 2
 
 
-def test_sqlite_enforces_foreign_keys(app):
+def test_sqlite_enforces_foreign_keys(app_context):
     """Ein Lauf ohne existierendes Konto wird abgewiesen, wie in PostgreSQL."""
     db.session.add(
         Training(
