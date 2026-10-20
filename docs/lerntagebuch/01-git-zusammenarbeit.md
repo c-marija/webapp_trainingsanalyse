@@ -32,8 +32,9 @@ anzeigt, wie viele Commits auf GitHub bereitliegen (`↓`) und wie viele eigene
 noch nicht gepusht sind (`↑`).
 
 **Offen geblieben:** Ob wir direkt auf `master` arbeiten oder pro Aufgabe einen
-Feature-Branch mit Pull Request anlegen. Siehe Eintrag unten, sobald entschieden
-— dann gehört die Begründung in einen Decision Record unter `docs/decisions/`.
+Feature-Branch mit Pull Request anlegen. *Nachtrag 2026-10-20:* Entschieden
+für Feature-Branches mit Pull Request, siehe
+[0002-branching-und-zusammenarbeit.md](../decisions/0002-branching-und-zusammenarbeit.md).
 
 **Merksatz:** Git ist pull-basiert, nicht push-basiert aus Sicht des Empfängers.
 Änderungen anderer erreichen meinen Rechner ausschliesslich dann, wenn ich sie
