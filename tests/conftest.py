@@ -2,7 +2,7 @@ import pytest
 
 from app import create_app
 from app.models import db
-from app.seed import init_db
+from app.seed import DEMO_USERS, init_db
 
 
 @pytest.fixture
@@ -33,3 +33,24 @@ def app_context(app):
 @pytest.fixture
 def client(app):
     return app.test_client()
+
+
+def _logged_in(app, user):
+    client = app.test_client()
+    response = client.post(
+        "/api/auth/login", json={"email": user["email"], "password": user["password"]}
+    )
+    assert response.status_code == 200
+    return client
+
+
+@pytest.fixture
+def user_client(app):
+    """Angemeldet als erstes Demo-Konto."""
+    return _logged_in(app, DEMO_USERS[0])
+
+
+@pytest.fixture
+def other_client(app):
+    """Angemeldet als zweites Demo-Konto, für Tests der Datentrennung (FA-A5)."""
+    return _logged_in(app, DEMO_USERS[1])
