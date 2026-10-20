@@ -39,6 +39,9 @@ def create_app(test_config=None):
         # Ohne DATABASE_URL: SQLite-Datei in instance/ (nicht versioniert).
         SQLALCHEMY_DATABASE_URI=os.environ.get("DATABASE_URL")
         or "sqlite:///pacemaker.db",
+        # Sitzungs-Cookie nicht an Anfragen von fremden Seiten mitsenden
+        # (Schutz vor Cross-Site Request Forgery).
+        SESSION_COOKIE_SAMESITE="Lax",
     )
     if test_config:
         app.config.update(test_config)
