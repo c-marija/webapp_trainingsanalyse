@@ -165,7 +165,6 @@ pre.ctx { background: var(--bg); border: 1px solid var(--line); border-radius: 8
 </header>
 
 <main class="wrap">
-  <p class="note">Beispiel-Frontend mit Vue 3 über CDN (ohne Build-Tools) und erfundenen Beispieldaten. Alle Daten kommen aus einer Mock-API im Browser; im Projekt ersetzt <code>fetch('/api/…')</code> diese Funktionen. Anmeldung, Logbuch und Rückfragen laufen über das Flask-Backend; die Tipps arbeiten noch mit Beispieldaten im Browser.</p>
 
   <!-- LOGIN / REGISTRIERUNG -->
   <section class="view auth" id="view-auth" v-if="bereit && !user">
@@ -297,21 +296,22 @@ pre.ctx { background: var(--bg); border: 1px solid var(--line); border-radius: 8
       </div>
     </div>
     <div class="ask">
-      <button v-for="f in fragen" :key="f.id" :data-frage="f.id" :aria-pressed="String(tipp.frage?.id === f.id)" @click="frageStellen(f)">{{ f.text }}</button>
+      <button v-for="f in fragen" :key="f.id" :data-frage="f.id" :aria-pressed="String(tipp.laedt === f.id)" :disabled="!!tipp.laedt" @click="frageStellen(f)">{{ f.text }}</button>
     </div>
-    <div class="card" v-if="tipp.frage">
-      <p class="answer-tag">Beispielantwort aus der Mock-API, kein echtes LLM</p>
-      <h3 style="margin-block:6px 10px">{{ tipp.frage.text }}</h3>
-      <div class="answer" id="answer"><span class="loading" v-if="tipp.laedt">Der Coach denkt nach …</span><template v-else>{{ tipp.antwort }}</template></div>
-      <details style="margin-top:16px" v-if="!tipp.laedt">
-        <summary>Was an das LLM gesendet wird</summary>
-        <pre class="ctx">Frage: {{ tipp.frage.text }}
-
-&lt;daten&gt;
-{{ tipp.kontext }}
-&lt;/daten&gt;</pre>
+    <p class="loading" role="status" v-if="tipp.laedt">Der Coach denkt nach …</p>
+    <p class="err" role="alert" v-if="tipp.fehler">{{ tipp.fehler }}</p>
+    <!-- FA-E6: die letzte Empfehlung, auch nach dem Neuladen -->
+    <div class="card" v-if="tipp.empfehlung">
+      <p class="answer-tag">Letzte Empfehlung · {{ fmtDatum(tipp.empfehlung.created_at) }}, {{ fmtUhr(tipp.empfehlung.created_at) }}</p>
+      <h3 style="margin-block:6px 10px">{{ tipp.empfehlung.question }}</h3>
+      <div class="answer" id="answer">{{ tipp.empfehlung.answer }}</div>
+      <!-- FA-E4: genau der Text, der an das Sprachmodell ging -->
+      <details style="margin-top:16px">
+        <summary>Was an das Sprachmodell gesendet wurde</summary>
+        <pre class="ctx">{{ tipp.empfehlung.prompt }}</pre>
       </details>
     </div>
+    <p class="muted" v-else-if="!tipp.laedt">Noch keine Empfehlung. Wähle oben eine Frage.</p>
   </section>
   </template>
 </main>
@@ -340,74 +340,11 @@ if (!window.Vue) {
 </script>
 <script>
 /* ================================================================
-   MOCK-API
-   Jede Funktion entspricht einem Endpunkt aus architektur.md.
-   Im echten Projekt wird z. B. api.getTrainings() zu
-   fetch('/api/trainings').then(r => r.json()).
+   API: Jede Funktion entspricht einem Endpunkt aus docs/architektur.md.
    ================================================================ */
-const HEUTE = new Date('2026-10-06T08:00:00');
-
-/* Beispieldaten je Konto. Die Anmeldung selbst läuft über das Backend (/api/auth);
-   diese Daten dienen nur noch den Reitern, die noch nicht angeschlossen sind. */
-const users = {
-  'demo@pacemaker.ch': {
-    name: 'Demo', passwort: 'laufen123',
-    daten: {
-      trainings: beispielTrainings(),
-      profil: {
-        ziel: 'wettkampf',
-        einheiten_pro_woche: 4,
-        km_pro_woche_aktuell: null, // null = aus Trainings vorschlagen
-        einschraenkungen: 'Montag fix Ruhetag',
-      },
-      wettkampf: { name: 'Halbmarathon (Beispiel)', datum: '2026-12-13', distanz_km: 21.0975, zielzeit_s: 6300 },
-    },
-  },
-};
-let session = null;   // im Backend: Session-Cookie (Flask-Login), hier die E-Mail des angemeldeten Users
-let store = null;     // Daten des angemeldeten Users
-
 class ApiFehler extends Error {
   constructor(status, message) { super(message); this.status = status; }
 }
-function angemeldet() {
-  if (!session) throw new ApiFehler(401, 'Bitte melde dich an.');
-}
-const neueDaten = () => ({
-  trainings: [],
-  profil: { ziel: 'fit', einheiten_pro_woche: 3, km_pro_woche_aktuell: null, einschraenkungen: '' },
-  wettkampf: null,
-});
-
-function beispielTrainings() {
-  // erfundene Beispielläufe der letzten 12 Wochen
-  const roh = [
-    ['2026-10-04 09:12', 'Sonntagslauf lang', 16.4, 5520, 148, 120, 'Laufen'],
-    ['2026-10-01 18:40', 'Feierabendrunde', 8.1, 2700, 151, 45, 'Laufen'],
-    ['2026-09-29 12:15', 'Intervalle 6×800 m', 9.6, 2880, 163, 30, 'Laufen'],
-    ['2026-09-27 09:30', 'Lang am See', 15.2, 5160, 146, 95, 'Laufen'],
-    ['2026-09-24 18:55', 'Locker', 7.4, 2490, 147, 40, 'Laufen'],
-    ['2026-09-22 19:10', 'Laufband Tempo', 8.0, 2520, 158, null, 'Laufbandtraining'],
-    ['2026-09-20 08:45', 'Hügelrunde', 13.9, 4800, 150, 210, 'Laufen'],
-    ['2026-09-17 18:30', 'Feierabendrunde', 8.3, 2790, 149, 50, 'Laufen'],
-    ['2026-09-13 09:05', 'Lang', 14.1, 4860, 147, 110, 'Laufen'],
-    ['2026-09-10 18:20', 'Intervalle 5×1 km', 10.2, 3120, 162, 35, 'Laufen'],
-    ['2026-09-06 10:00', 'Lang', 12.8, 4440, 146, 80, 'Laufen'],
-    ['2026-09-03 18:45', 'Locker', 6.9, 2370, 145, 30, 'Laufen'],
-    ['2026-08-30 09:20', 'Lang', 12.0, 4200, 145, 90, 'Laufen'],
-    ['2026-08-27 19:00', 'Laufband locker', 7.0, 2460, 144, null, 'Laufbandtraining'],
-    ['2026-08-23 08:50', 'Lang', 11.5, 4020, 146, 75, 'Laufen'],
-    ['2026-08-19 18:35', 'Feierabendrunde', 7.6, 2580, 148, 40, 'Laufen'],
-    ['2026-08-15 09:10', 'Lang', 11.0, 3870, 144, 60, 'Laufen'],
-    ['2026-08-11 18:40', 'Locker', 6.5, 2250, 146, 25, 'Laufen'],
-  ];
-  return roh.map(([start, titel, km, sek, hf, hm, typ], i) => ({
-    id: i + 1, start: start.replace(' ', 'T'), titel, distanz_km: km, bewegungszeit_s: sek, hf_avg: hf, hoehenmeter: hm, typ, quelle: 'beispiel',
-  }));
-}
-
-const warte = (ms) => new Promise(r => setTimeout(r, ms));
-
 /* Aufruf des Flask-Backends. Fehler kommen als JSON {"error": "…"} zurück
    und werden zu ApiFehler, damit die Oberfläche die Meldung anzeigen kann (NFA-5). */
 async function apiFetch(url, options = {}) {
@@ -426,33 +363,21 @@ async function apiFetch(url, options = {}) {
   return daten;
 }
 
-/* Brücke, bis die übrigen Features ans Backend angeschlossen sind: Nach der
-   echten Anmeldung bekommt die Mock-API die Beispieldaten dieses Kontos.
-   Wird entfernt, sobald kein Reiter mehr die Mock-API nutzt. */
-function mockSitzung(email) {
-  if (!users[email]) users[email] = { daten: neueDaten() };
-  session = email; store = users[email].daten;
-}
-
 const api = {
   // POST /api/auth/login {email, password} → setzt Session-Cookie, 401 bei falschen Angaben
   async login(email, passwort) {
     const u = await apiFetch('/api/auth/login', {
       method: 'POST', body: JSON.stringify({ email, password: passwort }),
     });
-    mockSitzung(u.email);
     return u;
   },
   // POST /api/auth/logout → beendet die Sitzung serverseitig
   async logout() {
     await apiFetch('/api/auth/logout', { method: 'POST' });
-    session = null; store = null;
   },
   // GET /api/auth/me → 401 ohne Sitzung
   async me() {
-    const u = await apiFetch('/api/auth/me');
-    mockSitzung(u.email);
-    return u;
+    return apiFetch('/api/auth/me');
   },
   // GET /api/trainings?sort=&direction= (FA-L1, FA-L2)
   async getTrainings(sort, direction) {
@@ -484,75 +409,21 @@ const api = {
   async putZiele(answers, competition) {
     return apiFetch('/api/goals', { method: 'PUT', body: JSON.stringify({ answers, competition }) });
   },
-  // GET /api/coach/fragen
+  // GET /api/recommendation/questions (FA-E1)
   async getFragen() {
-    return [
-      { id: 'verbessern', text: 'Wie kann ich mein Training verbessern?' },
-      { id: 'ziel_realistisch', text: 'Ist mein Ziel mit meinem aktuellen Training realistisch?' },
-      { id: 'umfang', text: 'Steigere ich meinen Umfang zu schnell?' },
-      { id: 'diese_woche', text: 'Was soll ich diese Woche laufen?' },
-    ];
+    return apiFetch('/api/recommendation/questions');
   },
-  // POST /api/coach {frage_id}
-  async askCoach(frageId) {
-    angemeldet();
-    await warte(700);
-    const kontext = buildContext();
-    return { antwort: mockAntwort(frageId), kontext };
+  // GET /api/recommendation: letzte Empfehlung oder null (FA-E6)
+  async getEmpfehlung() {
+    return (await apiFetch('/api/recommendation')).recommendation;
+  },
+  // POST /api/recommendation {question_id} (FA-E2 bis FA-E7)
+  async askCoach(questionId) {
+    return apiFetch('/api/recommendation', { method: 'POST', body: JSON.stringify({ question_id: questionId }) });
   },
 };
 
-/* ---------- Hilfsfunktionen (im Projekt: Backend, Python) ---------- */
-function sekunden(v) {
-  if (!v || v === '--') return null;
-  const teile = v.split(':').map(Number);
-  if (teile.some(Number.isNaN)) return null;
-  return Math.round(teile.reduce((s, x) => s * 60 + x, 0));
-}
-function kmLetzte4Wochen() {
-  const grenze = new Date(HEUTE); grenze.setDate(grenze.getDate() - 28);
-  const km = store.trainings.filter(t => new Date(t.start) >= grenze).reduce((s, t) => s + t.distanz_km, 0);
-  return Math.round(km / 4);
-}
-function buildContext() {
-  const p = store.profil, w = store.wettkampf;
-  const grenze = new Date(HEUTE); grenze.setDate(grenze.getDate() - 84);
-  const laeufe = store.trainings.filter(t => new Date(t.start) >= grenze).sort((a, b) => b.start.localeCompare(a.start));
-  const z = [
-    'Rückfragen:',
-    `- Trainingsziel: ${ZIELE[p.ziel]}`,
-    `- Einheiten pro Woche: ${p.einheiten_pro_woche}`,
-    `- aktuell km pro Woche: ${p.km_pro_woche_aktuell ?? kmLetzte4Wochen()}`,
-    `- Einschränkungen: ${p.einschraenkungen || 'keine'}`,
-  ];
-  if (w) z.push(`Wettkampf: ${w.name}, ${fmtDatum(w.datum)}, ${w.distanz_km} km, Zielzeit ${fmtZeit(w.zielzeit_s)}`);
-  z.push('Läufe der letzten 12 Wochen (Datum, km, min, Tempo s/km, Ø Puls, Hm, Laufband):');
-  for (const t of laeufe) {
-    z.push(`- ${fmtDatum(t.start)}, ${t.distanz_km}, ${Math.round(t.bewegungszeit_s / 60)}, ${Math.round(t.bewegungszeit_s / t.distanz_km)}, ${t.hf_avg ?? '-'}, ${t.hoehenmeter ?? '-'}, ${t.typ === 'Laufbandtraining' ? 'ja' : 'nein'}`);
-  }
-  return z.join('\n');
-}
-
-function mockAntwort(id) {
-  const km = kmLetzte4Wochen(), p = store.profil, w = store.wettkampf;
-  const tempo = w ? fmtPace(w.zielzeit_s / w.distanz_km) : null;
-  switch (id) {
-    case 'verbessern':
-      return `1. Mehr ruhige Kilometer: Deine lockeren Läufe liegen nahe am Tempo der langen Läufe. Lauf sie bewusst langsamer, damit du dich zwischen den harten Einheiten erholst.\n2. Eine Qualitätseinheit pro Woche reicht. Behalte die Intervalle am Mittwoch und lass sie in Entlastungswochen kürzer ausfallen.\n3. Steigere den langen Lauf um höchstens 1 bis 2 km pro Woche, bis du bei etwa 18 km bist.`;
-    case 'ziel_realistisch':
-      return w
-        ? `Mit rund ${km} km pro Woche und deinen Intervallzeiten wirkt ${fmtZeit(w.zielzeit_s)} für ${w.name} erreichbar. Das entspricht ${tempo} pro Kilometer. Entscheidend sind die nächsten Wochen: Wenn du den Umfang schrittweise auf über 40 km steigerst und die langen Läufe ohne Einbruch schaffst, passt das Ziel.`
-        : 'Du hast noch keinen Wettkampf erfasst. Trag in den Rückfragen ein Ziel mit Datum und Zielzeit ein, dann kann ich es einschätzen.';
-    case 'umfang':
-      return `Dein Umfang ist in den letzten Wochen von etwa 25 auf ${km} km pro Woche gestiegen. Das ist eine moderate Steigerung. Halte dich an die Regel von höchstens 10 % pro Woche und nimm jede vierte Woche etwas zurück.`;
-    case 'diese_woche':
-      return `Für diese Woche mit ${p.einheiten_pro_woche} Einheiten: Dienstag locker, Mittwoch Intervalle, Freitag locker, Sonntag der lange Lauf. ${p.einschraenkungen ? 'Montag bleibt wie gewünscht frei.' : ''} Halte die lockeren Läufe ruhig, etwa 60 bis 75 Sekunden pro Kilometer langsamer als dein Renntempo.`;
-  }
-  return '';
-}
-
 /* ---------- Formatierung (im Frontend) ---------- */
-const ZIELE = { wettkampf: 'Wettkampf', schneller: 'schneller werden', umfang: 'mehr Umfang', fit: 'fit bleiben' };
 const fmtKm = (km) => km.toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' km';
 function fmtZeit(s) {
   s = Math.round(s); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), sek = s % 60;
@@ -605,7 +476,7 @@ createApp({
     }
     async function abmelden() {
       await api.logout();
-      user.value = null; tipp.frage = null; importMeldung.text = '';
+      user.value = null; Object.assign(tipp, { empfehlung: null, laedt: null, fehler: '' }); importMeldung.text = '';
       auth.fehler = '';
     }
     async function eingeloggt(u, startView) {
@@ -704,14 +575,21 @@ createApp({
       profilGespeichert.value = true; setTimeout(() => profilGespeichert.value = false, 2500);
     }
 
-    /* KI-Tipps */
+    /* KI-Tipps (FA-E1 bis FA-E7) */
     const fragen = ref([]);
-    const tipp = reactive({ frage: null, antwort: '', kontext: '', laedt: false });
-    async function ladeFragen() { fragen.value = await api.getFragen(); }
+    // laedt: Id der Frage, die gerade bearbeitet wird; empfehlung: die letzte (FA-E6)
+    const tipp = reactive({ empfehlung: null, laedt: null, fehler: '' });
+    async function ladeFragen() {
+      const [f, empfehlung] = await Promise.all([api.getFragen(), api.getEmpfehlung()]);
+      fragen.value = f;
+      tipp.empfehlung = empfehlung;
+    }
     async function frageStellen(f) {
-      Object.assign(tipp, { frage: f, antwort: '', kontext: '', laedt: true });
-      const r = await api.askCoach(f.id);
-      if (tipp.frage === f) Object.assign(tipp, { antwort: r.antwort, kontext: r.kontext, laedt: false });
+      Object.assign(tipp, { laedt: f.id, fehler: '' });
+      // FA-E5: Bei einem Fehler bleibt die bisherige Empfehlung stehen.
+      try { tipp.empfehlung = await api.askCoach(f.id); }
+      catch (e) { tipp.fehler = e.message; }
+      finally { tipp.laedt = null; }
     }
 
     /* Start: bestehende Sitzung übernehmen, GET /api/auth/me mit dem Session-Cookie (FA-A4) */
