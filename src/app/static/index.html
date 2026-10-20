@@ -165,7 +165,7 @@ pre.ctx { background: var(--bg); border: 1px solid var(--line); border-radius: 8
 </header>
 
 <main class="wrap">
-  <p class="note">Beispiel-Frontend mit Vue 3 über CDN (ohne Build-Tools) und erfundenen Beispieldaten. Alle Daten kommen aus einer Mock-API im Browser; im Projekt ersetzt <code>fetch('/api/…')</code> diese Funktionen. Die Anmeldung läuft bereits über das Flask-Backend; Logbuch, Rückfragen und Tipps arbeiten noch mit Beispieldaten im Browser.</p>
+  <p class="note">Beispiel-Frontend mit Vue 3 über CDN (ohne Build-Tools) und erfundenen Beispieldaten. Alle Daten kommen aus einer Mock-API im Browser; im Projekt ersetzt <code>fetch('/api/…')</code> diese Funktionen. Anmeldung und Logbuch laufen über das Flask-Backend; Rückfragen und Tipps arbeiten noch mit Beispieldaten im Browser.</p>
 
   <!-- LOGIN / REGISTRIERUNG -->
   <section class="view auth" id="view-auth" v-if="bereit && !user">
@@ -180,7 +180,7 @@ pre.ctx { background: var(--bg); border: 1px solid var(--line); border-radius: 8
       </form>
     </div>
     <div class="demo">
-      <span>Demo-Konten (Passwort jeweils <b>laufen123</b>):<br><b>demo@pacemaker.ch</b> mit Beispielläufen<br><b>demo2@pacemaker.ch</b> ohne Läufe</span>
+      <span>Demo-Konten (Passwort jeweils <b>laufen123</b>):<br><b>demo@pacemaker.ch</b><br><b>demo2@pacemaker.ch</b></span>
       <button class="btn" id="demo-btn" type="button" @click="demoEintragen">Eintragen</button>
     </div>
   </section>
@@ -198,7 +198,7 @@ pre.ctx { background: var(--bg); border: 1px solid var(--line); border-radius: 8
     <div class="drop" :class="{ over: dragOver }" @dragover.prevent="dragOver = true" @dragleave="dragOver = false" @drop.prevent="onDrop">
       <div>
         <h3>Garmin-Export importieren</h3>
-        <p class="hint">Activities.csv aus Garmin Connect. Übernommen werden nur Läufe; Duplikate werden übersprungen.</p>
+        <p class="hint">Activities.csv aus Garmin Connect mit deutscher Spracheinstellung und metrischen Einheiten. Übernommen werden nur Läufe; Duplikate werden übersprungen.</p>
       </div>
       <div class="row">
         <input type="file" id="csv-input" ref="csvInput" accept=".csv,text/csv" hidden @change="onFile">
@@ -218,14 +218,14 @@ pre.ctx { background: var(--bg); border: 1px solid var(--line); border-radius: 8
           </tr></thead>
           <tbody id="log-body">
             <tr v-for="t in trainings" :key="t.id">
-              <td>{{ fmtDatum(t.start) }}<small>{{ fmtUhr(t.start) }}</small></td>
-              <td>{{ t.titel }}<span class="badge" v-if="t.typ === 'Laufbandtraining'">Laufband</span></td>
-              <td class="r">{{ fmtKm(t.distanz_km) }}</td>
-              <td class="r">{{ fmtZeit(t.bewegungszeit_s) }}</td>
-              <td class="r">{{ fmtPace(t.bewegungszeit_s / t.distanz_km) }}</td>
-              <td class="r">{{ t.hf_avg ?? '–' }}</td>
-              <td class="r">{{ t.hoehenmeter != null ? t.hoehenmeter + ' m' : '–' }}</td>
-              <td class="r"><button class="del" :aria-label="t.titel + ' löschen'" title="Löschen" @click="loesche(t.id)">✕</button></td>
+              <td>{{ fmtDatum(t.start_time) }}<small>{{ fmtUhr(t.start_time) }}</small></td>
+              <td>{{ t.title }}<span class="badge" v-if="t.activity_type === 'Laufbandtraining'">Laufband</span><span class="badge" v-if="t.activity_type === 'Trailrunning'">Trail</span></td>
+              <td class="r">{{ fmtKm(t.distance_km) }}</td>
+              <td class="r">{{ fmtZeit(t.moving_time_s) }}</td>
+              <td class="r">{{ fmtPace(t.moving_time_s / t.distance_km) }}</td>
+              <td class="r">{{ t.avg_hr ?? '–' }}</td>
+              <td class="r">{{ t.total_ascent_m != null ? Math.round(t.total_ascent_m) + ' m' : '–' }}</td>
+              <td class="r"><button class="del" :aria-label="t.title + ' löschen'" title="Löschen" @click="loesche(t.id)">✕</button></td>
             </tr>
             <tr v-if="!trainings.length"><td colspan="8" class="muted">Noch keine Läufe. Importiere deinen Garmin-Export oder erfasse einen Lauf manuell.</td></tr>
           </tbody>
@@ -243,6 +243,7 @@ pre.ctx { background: var(--bg); border: 1px solid var(--line); border-radius: 8
         <label>Ø Puls (optional)<input type="number" v-model.number="manuell.hf" min="60" max="220"></label>
         <button class="btn primary" type="submit">Lauf speichern</button>
       </form>
+      <p class="err" style="margin-top:10px" role="alert" v-if="manuell.fehler">{{ manuell.fehler }}</p>
       <p class="hint" style="margin-top:10px" v-if="manuell.gespeichert">Lauf gespeichert.</p>
     </details>
   </section>
@@ -422,7 +423,7 @@ async function apiFetch(url, options = {}) {
   try {
     r = await fetch(url, {
       ...options,
-      headers: options.body ? { 'Content-Type': 'application/json' } : undefined,
+      headers: typeof options.body === 'string' ? { 'Content-Type': 'application/json' } : undefined,
     });
   } catch (e) {
     throw new ApiFehler(0, 'Der Server ist nicht erreichbar. Bitte versuche es später nochmals.');
@@ -461,55 +462,23 @@ const api = {
     mockSitzung(u.email);
     return u;
   },
-  // GET /api/trainings?sort=&richtung=
-  async getTrainings(sort = 'start', richtung = 'desc') {
-    angemeldet();
-    const list = [...store.trainings].sort((a, b) => {
-      const va = sortWert(a, sort), vb = sortWert(b, sort);
-      return (va < vb ? -1 : va > vb ? 1 : 0) * (richtung === 'asc' ? 1 : -1);
-    });
-    return { anzahl: list.length, trainings: list };
+  // GET /api/trainings?sort=&direction= (FA-L1, FA-L2)
+  async getTrainings(sort, direction) {
+    return apiFetch(`/api/trainings?sort=${sort}&direction=${direction}`);
   },
-  // POST /api/trainings/import (multipart)
-  async importCsv(text) {
-    angemeldet();
-    const rows = parseCsv(text);
-    if (!rows.length || !('Aktivitätstyp' in rows[0]) || !('Datum' in rows[0])) {
-      throw new Error('Das ist kein Garmin-Export: Die Spalten „Aktivitätstyp“ und „Datum“ fehlen.');
-    }
-    let importiert = 0, duplikate = 0, keinLauf = 0, fehler = 0;
-    for (const r of rows) {
-      if (!['Laufen', 'Laufbandtraining', 'Trail Run'].includes(r['Aktivitätstyp'])) { keinLauf++; continue; }
-      const t = {
-        start: (r['Datum'] || '').replace(' ', 'T'),
-        titel: r['Titel'] || 'Lauf',
-        distanz_km: zahl(r['Distanz']),
-        bewegungszeit_s: sekunden(r['Zeit in Bewegung']) ?? sekunden(r['Zeit']),
-        hf_avg: zahl(r['Ø Herzfrequenz']),
-        hoehenmeter: zahl(r['Anstieg gesamt']),
-        typ: r['Aktivitätstyp'],
-        quelle: 'garmin_csv',
-      };
-      if (!t.start || !t.distanz_km || !t.bewegungszeit_s) { fehler++; continue; }
-      const dup = store.trainings.some(x => x.start.slice(0, 16) === t.start.slice(0, 16) && Math.abs(x.distanz_km - t.distanz_km) < 0.05);
-      if (dup) { duplikate++; continue; }
-      t.id = Date.now() + importiert;
-      store.trainings.push(t);
-      importiert++;
-    }
-    return { importiert, duplikate, kein_lauf: keinLauf, fehler };
+  // POST /api/trainings/import, Datei als multipart/form-data (FA-I1)
+  async importCsv(file) {
+    const body = new FormData();
+    body.append('file', file);
+    return apiFetch('/api/trainings/import', { method: 'POST', body });
   },
-  // POST /api/trainings
+  // POST /api/trainings (FA-L4)
   async addTraining(t) {
-    angemeldet();
-    t.id = Date.now(); t.quelle = 'manuell'; t.typ = 'Laufen'; t.hoehenmeter = null;
-    store.trainings.push(t);
-    return t;
+    return apiFetch('/api/trainings', { method: 'POST', body: JSON.stringify(t) });
   },
-  // DELETE /api/trainings/{id}
+  // DELETE /api/trainings/{id} (FA-L5)
   async deleteTraining(id) {
-    angemeldet();
-    store.trainings = store.trainings.filter(t => t.id !== id);
+    return apiFetch(`/api/trainings/${id}`, { method: 'DELETE' });
   },
   // GET /api/profil (inkl. km-Vorschlag aus den Trainings)
   async getProfil() {
@@ -541,43 +510,11 @@ const api = {
 };
 
 /* ---------- Hilfsfunktionen (im Projekt: Backend, Python) ---------- */
-function zahl(v) {
-  if (v == null || v === '' || v === '--') return null;
-  const n = parseFloat(String(v).replace(/,/g, '').replace(/^'/, ''));
-  return Number.isFinite(n) ? n : null;
-}
 function sekunden(v) {
   if (!v || v === '--') return null;
   const teile = v.split(':').map(Number);
   if (teile.some(Number.isNaN)) return null;
   return Math.round(teile.reduce((s, x) => s * 60 + x, 0));
-}
-function parseCsv(text) {
-  text = text.replace(/^﻿/, '');
-  const zeilen = []; let feld = '', zeile = [], inQuote = false;
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i];
-    if (inQuote) {
-      if (c === '"' && text[i + 1] === '"') { feld += '"'; i++; }
-      else if (c === '"') inQuote = false;
-      else feld += c;
-    } else if (c === '"') inQuote = true;
-    else if (c === ',') { zeile.push(feld); feld = ''; }
-    else if (c === '\n' || c === '\r') {
-      if (c === '\r' && text[i + 1] === '\n') i++;
-      zeile.push(feld); feld = '';
-      if (zeile.some(x => x !== '')) zeilen.push(zeile);
-      zeile = [];
-    } else feld += c;
-  }
-  if (feld !== '' || zeile.length) { zeile.push(feld); zeilen.push(zeile); }
-  const [kopf, ...rest] = zeilen;
-  if (!kopf) return [];
-  return rest.map(z => Object.fromEntries(kopf.map((k, i) => [k.trim(), (z[i] ?? '').trim()])));
-}
-function sortWert(t, key) {
-  if (key === 'tempo') return t.bewegungszeit_s / t.distanz_km;
-  return t[key] ?? -1;
 }
 function kmLetzte4Wochen() {
   const grenze = new Date(HEUTE); grenze.setDate(grenze.getDate() - 28);
@@ -647,9 +584,9 @@ createApp({
       { id: 'tipps', label: 'KI-Tipps' },
     ];
     const SPALTEN = [
-      { key: 'start', label: 'Datum & Uhrzeit' }, { key: 'titel', label: 'Lauf' },
-      { key: 'distanz_km', label: 'Distanz', cls: 'r' }, { key: 'bewegungszeit_s', label: 'Zeit', cls: 'r' },
-      { key: 'tempo', label: 'Tempo', cls: 'r' }, { key: 'hf_avg', label: 'Puls', cls: 'r' }, { key: 'hoehenmeter', label: 'Höhe', cls: 'r' },
+      { key: 'start_time', label: 'Datum & Uhrzeit' }, { key: 'title', label: 'Lauf' },
+      { key: 'distance_km', label: 'Distanz', cls: 'r' }, { key: 'moving_time_s', label: 'Zeit', cls: 'r' },
+      { key: 'pace', label: 'Tempo', cls: 'r' }, { key: 'avg_hr', label: 'Puls', cls: 'r' }, { key: 'total_ascent_m', label: 'Höhe', cls: 'r' },
     ];
 
     const bereit = ref(false);   // erst nach GET /api/me entscheiden, ob Login oder App
@@ -695,30 +632,34 @@ createApp({
 
     /* Logbuch */
     const trainings = ref([]);
-    const sortKey = ref('start'), sortDir = ref('desc');
+    const sortKey = ref('start_time'), sortDir = ref('desc');
     const dragOver = ref(false);
     const csvInput = ref(null);
     const importMeldung = reactive({ text: '', ok: true });
-    const manuell = reactive({ start: '', titel: '', km: null, zeit: '', hf: null, gespeichert: false });
+    const manuell = reactive({ start: '', titel: '', km: null, zeit: '', hf: null, gespeichert: false, fehler: '' });
 
     async function ladeTrainings() {
       trainings.value = (await api.getTrainings(sortKey.value, sortDir.value)).trainings;
     }
+    // FA-L3: Anzahl Läufe und Gesamtkilometer
     const logSummary = computed(() => {
-      const daten = trainings.value.map(t => t.start).sort();
-      const wochen = daten.length ? Math.max(1, Math.round((new Date(daten.at(-1)) - new Date(daten[0])) / (7 * 86400000))) : 0;
-      return `${trainings.value.length} Läufe · ${wochen} Wochen · Zeit = Bewegungszeit`;
+      const km = trainings.value.reduce((s, t) => s + t.distance_km, 0);
+      return `${trainings.value.length} Läufe · ${fmtKm(km)} gesamt · Zeit = Bewegungszeit`;
     });
     function sortiere(k) {
       if (k === sortKey.value) sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc';
-      else { sortKey.value = k; sortDir.value = k === 'titel' ? 'asc' : 'desc'; }
+      else { sortKey.value = k; sortDir.value = k === 'title' ? 'asc' : 'desc'; }
       ladeTrainings();
     }
-    async function loesche(id) { await api.deleteTraining(id); await ladeTrainings(); }
+    async function loesche(id) {
+      try { await api.deleteTraining(id); }
+      catch (e) { importMeldung.text = e.message; importMeldung.ok = false; }
+      await ladeTrainings();
+    }
     async function importiere(file) {
       try {
-        const r = await api.importCsv(await file.text());
-        importMeldung.text = `${r.importiert} Läufe importiert · ${r.duplikate} Duplikate übersprungen · ${r.kein_lauf} andere Aktivitäten übersprungen${r.fehler ? ` · ${r.fehler} Zeilen fehlerhaft` : ''}`;
+        const r = await api.importCsv(file);
+        importMeldung.text = `${r.imported} Läufe importiert · ${r.duplicates} Duplikate übersprungen · ${r.not_a_run} andere Aktivitäten übersprungen${r.errors ? ` · ${r.errors} Zeilen fehlerhaft` : ''}`;
         importMeldung.ok = true;
         await Promise.all([ladeTrainings(), ladeProfil()]);  // km-Vorschlag ändert sich mit
       } catch (e) {
@@ -727,11 +668,15 @@ createApp({
     }
     function onFile(e) { if (e.target.files[0]) importiere(e.target.files[0]); e.target.value = ''; }
     function onDrop(e) { dragOver.value = false; const f = e.dataTransfer.files[0]; if (f) importiere(f); }
-    async function laufSpeichern(e) {
-      await api.addTraining({
-        start: manuell.start, titel: manuell.titel.trim(), distanz_km: manuell.km,
-        bewegungszeit_s: sekunden(manuell.zeit), hf_avg: manuell.hf || null,
-      });
+    async function laufSpeichern() {
+      manuell.fehler = ''; manuell.gespeichert = false;
+      try {
+        // Die Zeit geht als Text ans Backend; dort wird sie geprüft und umgerechnet (NFA-3).
+        await api.addTraining({
+          start_time: manuell.start, title: manuell.titel.trim(), distance_km: manuell.km,
+          time: manuell.zeit.trim(), avg_hr: manuell.hf || null,
+        });
+      } catch (e) { manuell.fehler = e.message; return; }
       Object.assign(manuell, { start: '', titel: '', km: null, zeit: '', hf: null, gespeichert: true });
       await ladeTrainings();
     }
