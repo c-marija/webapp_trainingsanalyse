@@ -19,7 +19,10 @@ DEFAULT_MODEL = "gemini-2.5-flash"
 API_URL = (
     "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 )
-TIMEOUT_S = 30
+# Gemessen am 2026-10-20: gemini-3.8-flash brauchte im kostenlosen Kontingent
+# 97 Sekunden für eine Ein-Wort-Antwort. 30 Sekunden reichten nicht.
+# Produktiv muss auch Gunicorn so lange warten (Option --timeout).
+TIMEOUT_S = 150
 
 
 class KiServiceError(Exception):
