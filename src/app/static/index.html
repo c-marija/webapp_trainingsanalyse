@@ -165,7 +165,7 @@ pre.ctx { background: var(--bg); border: 1px solid var(--line); border-radius: 8
 </header>
 
 <main class="wrap">
-  <p class="note">Beispiel-Frontend mit Vue 3 über CDN (ohne Build-Tools) und erfundenen Beispieldaten. Alle Daten kommen aus einer Mock-API im Browser; im Projekt ersetzt <code>fetch('/api/…')</code> diese Funktionen. Anmeldung und Logbuch laufen über das Flask-Backend; Rückfragen und Tipps arbeiten noch mit Beispieldaten im Browser.</p>
+  <p class="note">Beispiel-Frontend mit Vue 3 über CDN (ohne Build-Tools) und erfundenen Beispieldaten. Alle Daten kommen aus einer Mock-API im Browser; im Projekt ersetzt <code>fetch('/api/…')</code> diese Funktionen. Anmeldung, Logbuch und Rückfragen laufen über das Flask-Backend; die Tipps arbeiten noch mit Beispieldaten im Browser.</p>
 
   <!-- LOGIN / REGISTRIERUNG -->
   <section class="view auth" id="view-auth" v-if="bereit && !user">
@@ -253,42 +253,34 @@ pre.ctx { background: var(--bg); border: 1px solid var(--line); border-radius: 8
     <div class="head">
       <div>
         <h2>Trainingsrückfragen</h2>
-        <p class="muted">Vier kurze Fragen. Die KI-Tipps bekommen deine Antworten als Kontext.</p>
+        <p class="muted">Kurze Fragen zu deinem Training. Die KI-Tipps bekommen deine Antworten als Kontext.</p>
       </div>
     </div>
-    <form class="card" id="profil-form" v-if="profil" @submit.prevent="profilSpeichern">
-      <fieldset class="q">
-        <legend>Was ist dein Trainingsziel?</legend>
-        <div class="chips">
-          <label class="chip" v-for="(label, wert) in ZIELE" :key="wert"><input type="radio" name="ziel" :value="wert" v-model="profil.ziel"><span>{{ label }}</span></label>
+    <form class="card" id="profil-form" v-if="rueckfragen.length" @submit.prevent="profilSpeichern" novalidate>
+      <!-- Fragen, Antworttypen und Optionen kommen aus GET /api/goals/questions (FA-Z5) -->
+      <fieldset class="q" v-for="q in rueckfragen" :key="q.key">
+        <legend>{{ q.text }}</legend>
+        <div class="chips" v-if="q.answer_type === 'choice'">
+          <label class="chip" v-for="o in q.options" :key="o.key"><input type="radio" :name="q.key" :value="o.key" v-model="antworten[q.key]"><span>{{ o.label }}</span></label>
         </div>
-        <div class="form-grid" v-if="profil.ziel === 'wettkampf'">
+        <div class="row" v-else-if="q.answer_type === 'number'">
+          <label style="max-width:160px">Zahl<input type="number" v-model.number="antworten[q.key]" :min="q.min_value" :max="q.max_value" step="1"></label>
+          <p class="hint" v-if="q.key === 'weekly_km'">Vorschlag aus deinen Läufen: Ø {{ kmVorschlag }} km in den letzten 4 Wochen.</p>
+        </div>
+        <label v-else>{{ q.required ? 'Antwort' : 'Optional' }}<template v-if="q.max_length">, max. {{ q.max_length }} Zeichen</template><textarea v-model="antworten[q.key]" :maxlength="q.max_length"></textarea></label>
+
+        <!-- FA-Z2: Wettkampfangaben nur bei Ziel "Wettkampf" -->
+        <div class="form-grid" v-if="q.key === 'goal' && antworten.goal === 'competition'">
           <label>Wettkampf<input type="text" v-model="wettkampf.name" maxlength="60" required></label>
-          <label>Datum<input type="date" v-model="wettkampf.datum" required></label>
-          <label>Distanz<select v-model.number="wettkampf.distanz_km">
+          <label>Datum<input type="date" v-model="wettkampf.race_date" required></label>
+          <label>Distanz<select v-model.number="wettkampf.distance_km">
             <option :value="5">5 km</option><option :value="10">10 km</option>
             <option :value="21.0975">Halbmarathon</option><option :value="42.195">Marathon</option>
           </select></label>
-          <label>Zielzeit (h:mm:ss)<input type="text" v-model="wettkampf.zielzeit" required pattern="^(\d{1,2}:)?\d{1,2}:\d{2}$"></label>
+          <label>Zielzeit (h:mm:ss)<input type="text" v-model="wettkampf.target_time" placeholder="1:45:00" required></label>
         </div>
       </fieldset>
-      <fieldset class="q">
-        <legend>Wie viele Einheiten pro Woche kannst du laufen?</legend>
-        <div class="chips">
-          <label class="chip" v-for="n in [2, 3, 4, 5, 6, 7]" :key="n"><input type="radio" name="einheiten" :value="n" v-model="profil.einheiten_pro_woche"><span>{{ n }}</span></label>
-        </div>
-      </fieldset>
-      <fieldset class="q">
-        <legend>Wie viele Kilometer läufst du aktuell pro Woche?</legend>
-        <div class="row">
-          <label style="max-width:160px">km pro Woche<input type="number" v-model.number="profil.km_pro_woche_aktuell" min="0" max="250" step="1"></label>
-          <p class="hint">Vorschlag aus deinen Läufen: Ø {{ profil.km_vorschlag }} km in den letzten 4 Wochen.</p>
-        </div>
-      </fieldset>
-      <fieldset class="q">
-        <legend>Gibt es Einschränkungen?</legend>
-        <label>Verletzungen, feste Ruhetage … (optional, max. 200 Zeichen)<textarea v-model="profil.einschraenkungen" maxlength="200"></textarea></label>
-      </fieldset>
+      <p class="err" role="alert" v-if="profilFehler">{{ profilFehler }}</p>
       <div class="row" style="margin-top:8px">
         <button class="btn primary" type="submit">Antworten speichern</button>
         <span class="saved" id="profil-saved" v-if="profilGespeichert">Gespeichert.</span>
@@ -480,16 +472,17 @@ const api = {
   async deleteTraining(id) {
     return apiFetch(`/api/trainings/${id}`, { method: 'DELETE' });
   },
-  // GET /api/profil (inkl. km-Vorschlag aus den Trainings)
-  async getProfil() {
-    angemeldet();
-    return { ...store.profil, km_vorschlag: kmLetzte4Wochen(), wettkampf: store.wettkampf };
+  // GET /api/goals/questions: Fragen, Antworttypen und Optionen (FA-Z5)
+  async getRueckfragen() {
+    return apiFetch('/api/goals/questions');
   },
-  // PUT /api/profil (+ POST /api/wettkaempfe, wenn Ziel = Wettkampf)
-  async putProfil(profil, wettkampf) {
-    angemeldet();
-    store.profil = profil;
-    store.wettkampf = profil.ziel === 'wettkampf' ? wettkampf : null;
+  // GET /api/goals: Antworten, Wettkampf und km-Vorschlag (FA-Z2 bis FA-Z4)
+  async getZiele() {
+    return apiFetch('/api/goals');
+  },
+  // PUT /api/goals (FA-Z4)
+  async putZiele(answers, competition) {
+    return apiFetch('/api/goals', { method: 'PUT', body: JSON.stringify({ answers, competition }) });
   },
   // GET /api/coach/fragen
   async getFragen() {
@@ -617,7 +610,7 @@ createApp({
     }
     async function eingeloggt(u, startView) {
       user.value = u;
-      await Promise.all([ladeTrainings(), ladeProfil(), ladeFragen()]);
+      await Promise.all([ladeTrainings(), ladeZiele(), ladeFragen()]);
       let start = startView || 'logbuch';
       if (!startView) {
         try { start = localStorage.getItem('pacemaker-tab') || start; } catch (e) {}
@@ -661,7 +654,7 @@ createApp({
         const r = await api.importCsv(file);
         importMeldung.text = `${r.imported} Läufe importiert · ${r.duplicates} Duplikate übersprungen · ${r.not_a_run} andere Aktivitäten übersprungen${r.errors ? ` · ${r.errors} Zeilen fehlerhaft` : ''}`;
         importMeldung.ok = true;
-        await Promise.all([ladeTrainings(), ladeProfil()]);  // km-Vorschlag ändert sich mit
+        await Promise.all([ladeTrainings(), ladeZiele()]);  // km-Vorschlag ändert sich mit
       } catch (e) {
         importMeldung.text = e.message; importMeldung.ok = false;
       }
@@ -681,22 +674,33 @@ createApp({
       await ladeTrainings();
     }
 
-    /* Rückfragen */
-    const profil = ref(null);
-    const wettkampf = reactive({ name: '', datum: '', distanz_km: 21.0975, zielzeit: '' });
+    /* Rückfragen (FA-Z1 bis FA-Z5) */
+    const rueckfragen = ref([]);
+    const antworten = reactive({});
+    const kmVorschlag = ref(0);
+    const wettkampf = reactive({ name: '', race_date: '', distance_km: 21.0975, target_time: '' });
     const profilGespeichert = ref(false);
-    async function ladeProfil() {
-      const p = await api.getProfil();
-      profil.value = { ...p, km_pro_woche_aktuell: p.km_pro_woche_aktuell ?? p.km_vorschlag };
-      const w = p.wettkampf || { name: '', datum: '', distanz_km: 21.0975, zielzeit_s: null };
-      Object.assign(wettkampf, { name: w.name, datum: w.datum, distanz_km: w.distanz_km, zielzeit: w.zielzeit_s ? fmtZeit(w.zielzeit_s) : '' });
+    const profilFehler = ref('');
+    async function ladeZiele() {
+      const [fragen, ziele] = await Promise.all([api.getRueckfragen(), api.getZiele()]);
+      rueckfragen.value = fragen;
+      for (const k of Object.keys(antworten)) delete antworten[k];
+      Object.assign(antworten, ziele.answers);
+      kmVorschlag.value = ziele.weekly_km_suggestion;
+      const w = ziele.competition;
+      Object.assign(wettkampf, w
+        ? { name: w.name, race_date: w.race_date, distance_km: w.distance_km, target_time: fmtZeit(w.target_time_s) }
+        : { name: '', race_date: '', distance_km: 21.0975, target_time: '' });
     }
     async function profilSpeichern() {
-      const p = profil.value;
-      await api.putProfil(
-        { ziel: p.ziel, einheiten_pro_woche: p.einheiten_pro_woche, km_pro_woche_aktuell: p.km_pro_woche_aktuell, einschraenkungen: p.einschraenkungen.trim() },
-        p.ziel === 'wettkampf' ? { name: wettkampf.name.trim(), datum: wettkampf.datum, distanz_km: wettkampf.distanz_km, zielzeit_s: sekunden(wettkampf.zielzeit) } : null,
-      );
+      profilFehler.value = ''; profilGespeichert.value = false;
+      // Leere Zahlenfelder liefert v-model als '' – fürs Backend heisst das "keine Antwort".
+      const answers = Object.fromEntries(Object.entries(antworten).map(([k, v]) => [k, v === '' ? null : v]));
+      const competition = antworten.goal === 'competition'
+        ? { name: wettkampf.name.trim(), race_date: wettkampf.race_date, distance_km: wettkampf.distance_km, target_time: wettkampf.target_time.trim() }
+        : null;
+      try { await api.putZiele(answers, competition); }
+      catch (e) { profilFehler.value = e.message; return; }
       profilGespeichert.value = true; setTimeout(() => profilGespeichert.value = false, 2500);
     }
 
@@ -717,10 +721,10 @@ createApp({
     });
 
     return {
-      TABS, SPALTEN, ZIELE, bereit, user, view, zeige,
+      TABS, SPALTEN, bereit, user, view, zeige,
       auth, demoEintragen, authSenden, abmelden,
       trainings, sortKey, sortDir, sortiere, loesche, dragOver, csvInput, importMeldung, onFile, onDrop, logSummary, manuell, laufSpeichern,
-      profil, wettkampf, profilGespeichert, profilSpeichern,
+      rueckfragen, antworten, kmVorschlag, wettkampf, profilGespeichert, profilFehler, profilSpeichern,
       fragen, tipp, frageStellen,
       fmtDatum, fmtUhr, fmtKm, fmtZeit, fmtPace,
     };
