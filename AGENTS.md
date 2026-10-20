@@ -31,14 +31,16 @@ Erkenntnisse des Teams stehen in `docs/lerntagebuch/`.
 ```
 src/app/
   __init__.py         create_app(); stellt `app` für `gunicorn app:app` bereit
-  models.py           alle SQLAlchemy-Modelle
-  auth.py             Blueprint /auth
-  trainings.py        Blueprint /trainings
-  goals.py            Blueprint /goals
-  recommendation.py   Blueprint /recommendation
+  models.py           alle SQLAlchemy-Modelle (ADR 0003)
+  seed.py             Einrichtungskommando init-db, Demo-Konten, Rückfragen
+  auth.py             Blueprint /api/auth
+  trainings.py        Blueprint /api/trainings
+  goals.py            Blueprint /api/goals
+  recommendation.py   Blueprint /api/recommendation
   ki_service.py       einzige Stelle, die das Sprachmodell aufruft
   static/index.html   Frontend
-tests/                pytest, eine Datei je Blueprint
+tests/                pytest, eine Datei je Blueprint, Fixtures in conftest.py
+instance/             lokale SQLite-Datenbank, nicht versioniert
 docs/                 Anforderungen, Architektur, Entscheide, Lerntagebuch
 ```
 
@@ -46,6 +48,7 @@ docs/                 Anforderungen, Architektur, Entscheide, Lerntagebuch
 
 ```
 uv sync --locked --all-groups          Umgebung einrichten
+uv run flask --app app init-db         Datenbank neu aufbauen (löscht alle Daten)
 uv run flask --app app run --debug     lokal starten
 uv run pytest                          Tests mit Coverage
 uv run ruff check --fix .              Lint
