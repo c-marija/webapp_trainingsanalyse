@@ -43,7 +43,7 @@ nachvollziehbare, auf ihre Daten bezogene Antwort auf eine Trainingsfrage.
 
 | Rolle | Beschreibung |
 |---|---|
-| **Gast** | Nicht angemeldet. Sieht ausschliesslich Anmeldung und Registrierung. |
+| **Gast** | Nicht angemeldet. Sieht ausschliesslich die Anmeldung. |
 | **Läuferin / Läufer** | Angemeldet. Einzige fachliche Rolle. Sieht und bearbeitet ausschliesslich die eigenen Daten. |
 
 Es gibt bewusst **keine Administrationsrolle**. Eine solche würde zusätzliche
@@ -66,14 +66,24 @@ Oberflächen und Rechteprüfungen erfordern, ohne zum Lernziel beizutragen.
 
 ### 5.1 Konto und Anmeldung
 
-**FA-A1 — Registrierung · MUSS**
-Für den Scope der Arbeit soll es noch kein Registrierungsfeature geben. Wir möchten 2 Demouser haben, welcher direkt in den datenbanken hinterlegt ist.
+**FA-A1 — Demo-Konten · MUSS**
+Eine Registrierung ist in dieser Version nicht vorgesehen. Stattdessen gibt
+es zwei Demo-Konten, die direkt in der Datenbank hinterlegt sind.
 
 *Akzeptanzkriterien*
- * ein Testuser ist vorhanden
+ * Zwei Demo-Konten mit Name, E-Mail-Adresse und Passwort sind vorhanden.
+ * Die Passwörter liegen in der Datenbank ausschliesslich als Hash vor, nie
+   im Klartext.
+ * Die Demo-Konten werden lokal und produktiv auf dieselbe Weise angelegt
+   (siehe Decision Record 0001, Folgeaufgaben).
+ * Die Oberfläche bietet keine Registrierung an.
+
+*Begründung:* Zwei Konten genügen, um die Datentrennung zwischen Konten
+(FA-A5) zu prüfen. Eine Registrierung wird für den Umfang der Arbeit noch
+nicht umgesetzt (Entscheid des Teams).
 
 **FA-A2 — Anmeldung · MUSS**
-Eine registrierte Person meldet sich mit E-Mail-Adresse und Passwort an.
+Eine Person meldet sich mit E-Mail-Adresse und Passwort eines Demo-Kontos an.
 
 *Akzeptanzkriterien*
  * Bei unbekannter E-Mail-Adresse **und** bei falschem Passwort erscheint
@@ -504,5 +514,5 @@ Bewusst ausgeschlossen, um den Umfang beherrschbar zu halten:
  * Verlauf früherer Empfehlungen (siehe FA-E6)
  * Diagramme und grafische Auswertungen
  * Administrationsbereich
- * Registrierung, es wird auschliesslich mit den Demousern gearbeitet
+ * Registrierung, es wird ausschliesslich mit den Demo-Konten gearbeitet (FA-A1)
 
