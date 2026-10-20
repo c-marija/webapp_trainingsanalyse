@@ -165,26 +165,22 @@ pre.ctx { background: var(--bg); border: 1px solid var(--line); border-radius: 8
 </header>
 
 <main class="wrap">
-  <p class="note">Beispiel-Frontend mit Vue 3 über CDN (ohne Build-Tools) und erfundenen Beispieldaten. Alle Daten kommen aus einer Mock-API im Browser; im Projekt ersetzt <code>fetch('/api/…')</code> diese Funktionen. Du kannst deine eigene Garmin-CSV im Logbuch testen, sie verlässt den Browser nicht. Neue Konten gibt es nur bis zum Neuladen der Seite.</p>
+  <p class="note">Beispiel-Frontend mit Vue 3 über CDN (ohne Build-Tools) und erfundenen Beispieldaten. Alle Daten kommen aus einer Mock-API im Browser; im Projekt ersetzt <code>fetch('/api/…')</code> diese Funktionen. Die Anmeldung läuft bereits über das Flask-Backend; Logbuch, Rückfragen und Tipps arbeiten noch mit Beispieldaten im Browser.</p>
 
   <!-- LOGIN / REGISTRIERUNG -->
   <section class="view auth" id="view-auth" v-if="bereit && !user">
     <div class="card">
-      <h2>{{ registrieren ? 'Konto erstellen' : 'Anmelden' }}</h2>
-      <p class="muted" style="margin-block:4px 16px">{{ registrieren ? 'Deine Läufe und Antworten werden nur deinem Konto zugeordnet.' : 'Melde dich an, um dein Logbuch und deine KI-Tipps zu sehen.' }}</p>
+      <h2>Anmelden</h2>
+      <p class="muted" style="margin-block:4px 16px">Melde dich an, um dein Logbuch und deine KI-Tipps zu sehen.</p>
       <form @submit.prevent="authSenden" novalidate>
-        <label v-if="registrieren">Name<input type="text" id="a-name" v-model="auth.name" autocomplete="name" maxlength="40"></label>
         <label>E-Mail<input type="email" id="a-email" v-model="auth.email" autocomplete="email" required></label>
-        <label>Passwort<input type="password" id="a-pw" v-model="auth.passwort" :autocomplete="registrieren ? 'new-password' : 'current-password'" required minlength="8"></label>
-        <p class="hint" v-if="registrieren">Mindestens 8 Zeichen.</p>
+        <label>Passwort<input type="password" id="a-pw" v-model="auth.passwort"  autocomplete="current-password" required></label>
         <p class="err" id="auth-err" role="alert" v-if="auth.fehler">{{ auth.fehler }}</p>
-        <button class="btn primary" type="submit" id="auth-submit" :disabled="auth.laeuft">{{ registrieren ? 'Registrieren' : 'Anmelden' }}</button>
+        <button class="btn primary" type="submit" id="auth-submit" :disabled="auth.laeuft">Anmelden</button>
       </form>
-      <p class="switch" style="margin-top:14px">{{ registrieren ? 'Schon registriert?' : 'Noch kein Konto?' }}
-        <button class="linkbtn" id="switch-btn" type="button" @click="setModus(registrieren ? 'login' : 'register')">{{ registrieren ? 'Anmelden' : 'Registrieren' }}</button></p>
     </div>
     <div class="demo">
-      <span>Demo-Zugang mit Beispielläufen:<br><b>demo@pacemaker.ch</b> · <b>laufen123</b></span>
+      <span>Demo-Konten (Passwort jeweils <b>laufen123</b>):<br><b>demo@pacemaker.ch</b> mit Beispielläufen<br><b>demo2@pacemaker.ch</b> ohne Läufe</span>
       <button class="btn" id="demo-btn" type="button" @click="demoEintragen">Eintragen</button>
     </div>
   </section>
@@ -358,8 +354,8 @@ if (!window.Vue) {
    ================================================================ */
 const HEUTE = new Date('2026-10-06T08:00:00');
 
-/* Tabelle USER: im Backend mit passwort_hash (werkzeug.security), hier nur im Speicher des Browsers.
-   Jeder User hat eigene Daten; das Backend filtert jede Abfrage nach current_user.id. */
+/* Beispieldaten je Konto. Die Anmeldung selbst läuft über das Backend (/api/auth);
+   diese Daten dienen nur noch den Reitern, die noch nicht angeschlossen sind. */
 const users = {
   'demo@pacemaker.ch': {
     name: 'Demo', passwort: 'laufen123',
@@ -419,38 +415,51 @@ function beispielTrainings() {
 
 const warte = (ms) => new Promise(r => setTimeout(r, ms));
 
+/* Aufruf des Flask-Backends. Fehler kommen als JSON {"error": "…"} zurück
+   und werden zu ApiFehler, damit die Oberfläche die Meldung anzeigen kann (NFA-5). */
+async function apiFetch(url, options = {}) {
+  let r;
+  try {
+    r = await fetch(url, {
+      ...options,
+      headers: options.body ? { 'Content-Type': 'application/json' } : undefined,
+    });
+  } catch (e) {
+    throw new ApiFehler(0, 'Der Server ist nicht erreichbar. Bitte versuche es später nochmals.');
+  }
+  if (r.status === 204) return null;
+  const daten = await r.json().catch(() => ({}));
+  if (!r.ok) throw new ApiFehler(r.status, daten.error || 'Unerwarteter Fehler. Bitte versuche es nochmals.');
+  return daten;
+}
+
+/* Brücke, bis die übrigen Features ans Backend angeschlossen sind: Nach der
+   echten Anmeldung bekommt die Mock-API die Beispieldaten dieses Kontos.
+   Wird entfernt, sobald kein Reiter mehr die Mock-API nutzt. */
+function mockSitzung(email) {
+  if (!users[email]) users[email] = { daten: neueDaten() };
+  session = email; store = users[email].daten;
+}
+
 const api = {
-  // POST /api/auth/register {name, email, passwort} → 201, 409 wenn E-Mail vergeben
-  async register(name, email, passwort) {
-    await warte(300);
-    email = email.trim().toLowerCase();
-    if (!name.trim()) throw new ApiFehler(400, 'Bitte gib deinen Namen ein.');
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new ApiFehler(400, 'Bitte gib eine gültige E-Mail-Adresse ein.');
-    if (passwort.length < 8) throw new ApiFehler(400, 'Das Passwort muss mindestens 8 Zeichen haben.');
-    if (users[email]) throw new ApiFehler(409, 'Diese E-Mail ist bereits registriert.');
-    users[email] = { name: name.trim(), passwort, daten: neueDaten() };
-    return api.login(email, passwort); // nach der Registrierung direkt angemeldet
-  },
-  // POST /api/auth/login {email, passwort} → setzt Session-Cookie, 401 bei falschen Angaben
+  // POST /api/auth/login {email, password} → setzt Session-Cookie, 401 bei falschen Angaben
   async login(email, passwort) {
-    await warte(300);
-    email = email.trim().toLowerCase();
-    const u = users[email];
-    // bewusst dieselbe Meldung für unbekannte E-Mail und falsches Passwort
-    if (!u || u.passwort !== passwort) throw new ApiFehler(401, 'E-Mail oder Passwort ist falsch.');
-    session = email; store = u.daten;
-    try { sessionStorage.setItem('pacemaker-session', email); } catch (e) {}
-    return { name: u.name, email };
+    const u = await apiFetch('/api/auth/login', {
+      method: 'POST', body: JSON.stringify({ email, password: passwort }),
+    });
+    mockSitzung(u.email);
+    return u;
   },
-  // POST /api/auth/logout
+  // POST /api/auth/logout → beendet die Sitzung serverseitig
   async logout() {
+    await apiFetch('/api/auth/logout', { method: 'POST' });
     session = null; store = null;
-    try { sessionStorage.removeItem('pacemaker-session'); } catch (e) {}
   },
-  // GET /api/me → 401 ohne Session
+  // GET /api/auth/me → 401 ohne Sitzung
   async me() {
-    angemeldet();
-    return { name: users[session].name, email: session };
+    const u = await apiFetch('/api/auth/me');
+    mockSitzung(u.email);
+    return u;
   },
   // GET /api/trainings?sort=&richtung=
   async getTrainings(sort = 'start', richtung = 'desc') {
@@ -647,22 +656,19 @@ createApp({
     const user = ref(null);
     const view = ref('logbuch');
 
-    /* Login / Registrierung */
-    const auth = reactive({ modus: 'login', name: '', email: '', passwort: '', fehler: '', laeuft: false });
-    const registrieren = computed(() => auth.modus === 'register');
-    function setModus(m) { auth.modus = m; auth.fehler = ''; }
+    /* Anmeldung (FA-A2); keine Registrierung, nur Demo-Konten (FA-A1) */
+    const auth = reactive({ email: '', passwort: '', fehler: '', laeuft: false });
     function demoEintragen() {
-      setModus('login'); auth.email = 'demo@pacemaker.ch'; auth.passwort = 'laufen123';
+      auth.email = 'demo@pacemaker.ch'; auth.passwort = 'laufen123'; auth.fehler = '';
     }
     async function authSenden() {
       auth.fehler = ''; auth.laeuft = true;
       try {
-        const u = registrieren.value
-          ? await api.register(auth.name, auth.email, auth.passwort)
-          : await api.login(auth.email, auth.passwort);
-        const warRegistrierung = registrieren.value;
+        const u = await api.login(auth.email, auth.passwort);
         auth.passwort = '';
-        await eingeloggt(u, warRegistrierung ? 'profil' : null);
+        // Nach dem Anmelden immer das Logbuch; nur beim Neuladen der Seite
+        // wird der zuletzt geöffnete Reiter wiederhergestellt.
+        await eingeloggt(u, 'logbuch');
       } catch (e) {
         auth.fehler = e.message;
       } finally { auth.laeuft = false; }
@@ -670,7 +676,7 @@ createApp({
     async function abmelden() {
       await api.logout();
       user.value = null; tipp.frage = null; importMeldung.text = '';
-      setModus('login');
+      auth.fehler = '';
     }
     async function eingeloggt(u, startView) {
       user.value = u;
@@ -759,18 +765,15 @@ createApp({
       if (tipp.frage === f) Object.assign(tipp, { antwort: r.antwort, kontext: r.kontext, laedt: false });
     }
 
-    /* Start: bestehende Session übernehmen (im Backend: GET /api/me mit dem Session-Cookie) */
+    /* Start: bestehende Sitzung übernehmen, GET /api/auth/me mit dem Session-Cookie (FA-A4) */
     onMounted(async () => {
-      let gespeichert = null;
-      try { gespeichert = sessionStorage.getItem('pacemaker-session'); } catch (e) {}
-      if (gespeichert && users[gespeichert]) { session = gespeichert; store = users[gespeichert].daten; }
       try { await eingeloggt(await api.me()); } catch (e) { /* 401: Login zeigen */ }
       bereit.value = true;
     });
 
     return {
       TABS, SPALTEN, ZIELE, bereit, user, view, zeige,
-      auth, registrieren, setModus, demoEintragen, authSenden, abmelden,
+      auth, demoEintragen, authSenden, abmelden,
       trainings, sortKey, sortDir, sortiere, loesche, dragOver, csvInput, importMeldung, onFile, onDrop, logSummary, manuell, laufSpeichern,
       profil, wettkampf, profilGespeichert, profilSpeichern,
       fragen, tipp, frageStellen,
