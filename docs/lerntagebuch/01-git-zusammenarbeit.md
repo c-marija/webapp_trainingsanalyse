@@ -64,3 +64,34 @@ bedeutet, dass Git eine inhaltliche Entscheidung nicht treffen kann und sie an
 uns zurückgibt.
 
 ---
+
+### 2026-10-20 — Pull Requests und Freigaben im Team (Team)
+
+**Ausgangslage:** Seit ADR 0002 gelangt jede Änderung nur über einen Pull
+Request nach `master`. Heute haben wir sechs Pull Requests geprüft und
+gemergt.
+
+**Was wir gelernt haben:** Die Zusammenarbeit mit Freigabe (Approve) durch
+eine zweite Person hat funktioniert. Drei Details haben wir unterwegs
+gelernt:
+
+ * **Comment ist nicht Approve.** Bei einem Review gibt es drei Varianten.
+   Nur *Approve* dokumentiert auf GitHub, dass jemand den Code geprüft und für
+   gut befunden hat. Und: Erst freigeben, dann mergen.
+ * **Den eigenen Pull Request kann man nicht freigeben.** Wer ihn geöffnet
+   hat, braucht eine zweite Person.
+ * **Aufeinander aufbauende Pull Requests** (#4 → #5 → #6) müssen in dieser
+   Reihenfolge und mit „Create a merge commit" gemergt werden. Solange der
+   erste offen ist, zeigt der zweite dessen Commits mit an; nach dem Merge
+   verschwinden sie automatisch.
+
+**Was wir daraus gemacht haben:** Jeder Pull Request enthält eine Prüfliste
+für den Browser. Eine Person testet, gibt frei und mergt; danach holen alle
+mit `git pull` den neuen Stand.
+
+**Offen geblieben:** Ob wir die Freigabe über eine Branch-Schutzregel auf
+GitHub erzwingen (offener Punkt in ADR 0002).
+
+**Merksatz:** Der Pull Request ist der einzige Kontrollpunkt zwischen „fertig
+auf meinem Rechner" und „für alle sichtbar" — und sobald Render läuft, auch
+„öffentlich deployt".
