@@ -22,6 +22,9 @@ what their purpose is and how you can use them.
    `docs/deployment-azure-app-service-flask.md` contains optional deployment
    notes for teams that choose Flask and deployment to Azure App Service with
    the built-in Python runtime.
+   The folder `docs/lerntagebuch` is the team's learning journal: it records
+   what we learned and why we worked the way we did, organised by topic. It
+   complements `docs/decisions`, which holds the formal decision records.
  * The folder `src/app` is where your Python backend code will live. The folder
    `src/app/static` will take your frontend code.
 
