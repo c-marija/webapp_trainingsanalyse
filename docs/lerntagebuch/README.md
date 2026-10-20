@@ -64,5 +64,8 @@ Weil mehrere Personen in dieselben Dateien schreiben: **vor dem Schreiben
 `git pull`, nach dem Schreiben zügig `git commit` und `git push`.** Ein Eintrag,
 der drei Tage unversioniert lokal liegt, wird fast sicher zum Merge-Konflikt.
 
-Tagebuch-Einträge dürfen in einem eigenen kleinen Commit gepusht werden, auch
-direkt auf `master` — sie berühren keinen Code und können nichts kaputt machen.
+Tagebuch-Einträge kommen wie jede andere Änderung über einen Branch und einen
+Pull Request nach `master` (siehe
+[0002-branching-und-zusammenarbeit.md](../decisions/0002-branching-und-zusammenarbeit.md)).
+Ein eigener kleiner Pull Request nur für den Eintrag ist dabei völlig in
+Ordnung.

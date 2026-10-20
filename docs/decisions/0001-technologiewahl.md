@@ -4,15 +4,21 @@ Datum: 2026-10-20
 
 ## Status
 
-Angenommen
+Angenommen — vom gesamten Team abgenommen am 2026-10-20
 
 ## Kontext
 
 Wir entwickeln im Rahmen des Moduls Softwareentwicklung zu viert eine
-Webanwendung zur Analyse von Lauftrainings ("PaceMaker"). Angemeldete
-Personen sollen ihre Läufe erfassen oder als Garmin-CSV importieren, ihr
-Wettkampfziel hinterlegen und daraus Auswertungen sowie Trainingstipps
-erhalten.
+Webanwendung zur Analyse von Lauftrainings ("PaceMaker"). Die fachlichen
+Anforderungen stehen in [../anforderungen.md](../anforderungen.md), der
+Aufbau der Anwendung in [../architektur.md](../architektur.md).
+
+Kurz zusammengefasst: Zwei Demo-Konten melden sich an, importieren ihre Läufe
+als Garmin-CSV oder erfassen sie von Hand, beantworten Rückfragen zu ihrem
+Trainingsziel und erhalten dazu Trainingsempfehlungen eines Sprachmodells.
+Die Rückfragen stammen aus der Datenbank; je Konto wird nur die letzte
+Empfehlung aufbewahrt. Eine Registrierung und grafische Auswertungen sind
+nicht vorgesehen.
 
 Ein funktionsfähiger Frontend-Prototyp existiert bereits als einzelne Datei
 `src/app/static/index.html`. Er ist mit Vue 3 über CDN gebaut und arbeitet
@@ -74,9 +80,9 @@ Randbedingungen für die Entscheidung:
  * **Eigener Container** — maximale Kontrolle, zusätzlicher Lernaufwand
    ohne Nutzen für den Projektzweck.
 
-**Trainingstipps**
+**Trainingsempfehlungen**
 
- * **Gemini Flash im kostenlosen Kontingent** — formuliert Tipps in
+ * **Gemini Flash im kostenlosen Kontingent** — formuliert Empfehlungen in
    natürlicher Sprache, externe Abhängigkeit.
  * **Regelbasierte Logik in Python** — keine externe Abhängigkeit, aber
    deutlich weniger ausdrucksstark.
@@ -84,8 +90,9 @@ Randbedingungen für die Entscheidung:
 **Diagramme**
 
  * **Chart.js über CDN** — kein Build-Schritt, passt zur bestehenden
-   Frontend-Architektur.
- * **Eigene SVG-Darstellung** — volle Kontrolle, hoher Aufwand.
+   Frontend-Architektur. Ursprünglich gewählt, mit dem Verzicht auf
+   grafische Auswertungen in den Anforderungen jedoch hinfällig.
+ * **Keine Diagramme** — gewählt, siehe *Abweichungen* unten.
 
 ## Entscheidung
 
@@ -93,15 +100,25 @@ Im Team gemeinsam entschieden (vier Personen) am 20.10.2026:
 
 | Bereich | Entscheid |
 |---|---|
-| Frontend | Vue 3 über CDN, Diagramme mit Chart.js über CDN |
+| Frontend | Vue 3 über CDN |
 | Backend | Flask mit Flask-SQLAlchemy und Flask-Login, betrieben mit Gunicorn |
 | CSV-Import | Python-Standardmodul `csv` |
 | Datenbank produktiv | PostgreSQL bei Render |
 | Datenbank lokal | SQLite |
 | KI | Gemini Flash im kostenlosen Kontingent, gekapselt in `ki_service.py` |
 | Hosting | Render Web Service, Region Frankfurt |
-| Deployment | Render deployt automatisch bei jedem Push; GitHub Actions entfällt |
+| Deployment | Render deployt automatisch bei jedem Push auf `master`; GitHub Actions entfällt |
 | Secrets | lokal in `.env`, produktiv als Environment Variables in Render |
+
+### Abweichungen von der ursprünglichen Entscheidungstabelle
+
+Zwei Einträge weichen von der Tabelle ab, die das Team ursprünglich
+festgelegt hat. Beide wurden bei der Abnahme vom Team bestätigt.
+
+| Bereich | Ursprünglich | Jetzt | Grund |
+|---|---|---|---|
+| Frontend | Vue 3 + **Chart.js** über CDN | Vue 3 über CDN | Diagramme sind laut Anforderungen nicht Bestandteil dieser Version (Abschnitt 7). Eine Bibliothek ohne Verwendung wäre toter Code. |
+| Deployment | Push auf **`main`** | Push auf **`master`** | Der Hauptbranch des Repositories heisst `master`. Mit `main` würde Render nie ein Deployment auslösen — ohne Fehlermeldung. |
 
 ## Begründung
 
@@ -111,9 +128,9 @@ aus, und der geringe Funktionsumfang ist bei fehlender Vorerfahrung ein
 Vorteil: Das Team kann das Framework in überschaubarer Zeit vollständig
 durchdringen, statt einen grossen Teil davon nur zu benutzen.
 
-Vue 3 und Chart.js über CDN vermeiden jeden Frontend-Build-Schritt. Das
-entspricht der Projektvorgabe und erspart vier Personen die Einrichtung
-einer Node-Werkzeugkette, die für den Lernzweck nichts beiträgt.
+Vue 3 über CDN vermeidet jeden Frontend-Build-Schritt. Das entspricht der
+Projektvorgabe und erspart vier Personen die Einrichtung einer
+Node-Werkzeugkette, die für den Lernzweck nichts beiträgt.
 
 Flask-SQLAlchemy ist die Voraussetzung dafür, lokal mit SQLite und produktiv
 mit PostgreSQL arbeiten zu können, ohne zwei Varianten des Datenzugriffs zu
@@ -124,7 +141,8 @@ Flask-Login übernimmt die sicherheitsrelevanten Teile der Sitzungsverwaltung.
 Eine Eigenentwicklung wäre lehrreicher gewesen, hätte bei einem Fehler aber
 eine echte Sicherheitslücke bedeutet. Die Autorisierung bleibt unabhängig
 davon unsere Aufgabe: Jede Route muss selbst prüfen, dass ein Datensatz der
-angemeldeten Person gehört.
+angemeldeten Person gehört. Dass es zwei Demo-Konten gibt, macht genau diese
+Prüfung testbar.
 
 Render wurde gegenüber Azure App Service gewählt, weil Web Service und
 Datenbank aus einer Hand kommen und das Deployment ohne zusätzliche
@@ -133,7 +151,7 @@ Thema — ein bewusster Verzicht zugunsten eines einfacheren Einstiegs.
 
 Die Kapselung des Sprachmodells in `ki_service.py` hält den Anbieter an einer
 einzigen Stelle austauschbar. Das Team kann ohne API-Schlüssel gegen eine
-Attrappe entwickeln, und ein Wechsel auf regelbasierte Tipps oder einen
+Attrappe entwickeln, und ein Wechsel auf regelbasierte Empfehlungen oder einen
 anderen Anbieter bleibt ohne Änderungen am übrigen Code möglich.
 
 ## Konsequenzen
@@ -141,7 +159,7 @@ anderen Anbieter bleibt ohne Änderungen am übrigen Code möglich.
 **Was einfacher wird**
 
  * Kein Frontend-Build, kein Paketmanager ausser `uv`.
- * Deployment ohne eigene Pipeline: Push auf den Hauptbranch genügt.
+ * Deployment ohne eigene Pipeline: Push auf `master` genügt.
  * Lokale Entwicklung ohne Datenbankinstallation auf vier Rechnern.
  * Das Datenmodell ist an einer Stelle als Python-Klassen beschrieben.
 
@@ -159,22 +177,27 @@ anderen Anbieter bleibt ohne Änderungen am übrigen Code möglich.
 
 **Akzeptierte Risiken und Folgeaufgaben**
 
- * *Branch-Name:* Der Hauptbranch des Repositories heisst `master`. Der
-   Render-Dienst muss auf diesen Branch konfiguriert werden, sonst wird kein
-   Deployment ausgelöst.
+ * *Render auf `master` einstellen:* Beim Anlegen des Render-Dienstes ist der
+   Branch `master` auszuwählen.
  * *Früh deployen:* Wegen der Abweichung SQLite/PostgreSQL deployen wir ab
    dem ersten lauffähigen Stand regelmässig, nicht erst gegen Projektende.
+ * *Datenbank reproduzierbar einrichten:* Demo-Konten (FA-A1) und der
+   Anfangsbestand der Rückfragen (FA-Z5) stehen nicht im Code, sondern in der
+   Datenbank. Sie werden durch ein Einrichtungskommando angelegt, das lokal
+   und produktiv gleich funktioniert. Die Passwörter der Demo-Konten werden
+   dabei nur als Hash gespeichert.
  * *Kostenloses Kontingent:* Die Bedingungen des Render-Gratisangebots für
    PostgreSQL sind zu prüfen. Bei kostenlosen Datenbanken ist eine
-   Laufzeitbegrenzung üblich, nach der die Instanz gelöscht wird. Wir
-   benötigen einen Weg, den Datenbestand bei Bedarf neu aufzubauen.
- * *Datenschutz:* An Gemini werden ausschliesslich Aggregate übermittelt
-   (Wochenkilometer, Pace-Entwicklung, Wettkampfziel), keine Namen,
-   E-Mail-Adressen oder vollständigen Rohdatensätze. Bei kostenlosen
+   Laufzeitbegrenzung üblich, nach der die Instanz gelöscht wird. Das
+   Einrichtungskommando aus dem vorigen Punkt ist dann der Weg zurück.
+ * *Datenschutz:* An Gemini gehen gemäss FA-E2 die Antworten auf die
+   Rückfragen, der Wettkampf und die einzelnen Läufe der letzten 12 Wochen —
+   jedoch keine Namen, E-Mail-Adressen oder Kontonummern. Bei kostenlosen
    Kontingenten ist davon auszugehen, dass Eingaben beim Anbieter
-   weiterverarbeitet werden können.
+   weiterverarbeitet werden können. Für die Demo-Konten ist das unkritisch;
+   vor einem Einsatz mit echten Personen wäre es neu zu beurteilen.
  * *Versionskontrolle:* Die lokale SQLite-Datei darf nicht versioniert
    werden. `.gitignore` ist vor dem ersten Backend-Commit um die
    entsprechenden Muster zu ergänzen.
- * Eine spätere Umstellung auf regelbasierte Trainingstipps oder einen
-   anderen KI-Anbieter erfordert einen neuen Entscheid in diesem Verzeichnis.
+ * Eine spätere Umstellung auf regelbasierte Empfehlungen oder einen anderen
+   KI-Anbieter erfordert einen neuen Entscheid in diesem Verzeichnis.

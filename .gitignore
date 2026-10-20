@@ -43,3 +43,9 @@ venv/
 
 # MacOS files
 .DS_Store
+
+# Lokale Datenbank, darf nie versioniert werden (ADR 0001)
+*.db
+*.sqlite
+*.sqlite3
+instance/
