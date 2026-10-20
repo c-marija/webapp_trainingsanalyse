@@ -69,12 +69,14 @@ Architektur angepasst wurden (siehe unten).
 | Endpunkt | Operationen | Backend-Modul | Datei | Tabellen | Anforderungen |
 |---|---|---|---|---|---|
 | `/api/auth` | login, logout, me | Auth | `auth.py` | `users` | FA-A1 bis FA-A5 |
-| `/api/trainings` | abrufen, importieren, anlegen, löschen | Import, Logbuch | `trainings.py` | `trainings` | FA-I1 bis FA-I8, FA-L1 bis FA-L7 |
+| `/api/trainings` | abrufen, importieren, anlegen, löschen | Import, Logbuch | `trainings.py`, `garmin.py` | `trainings` | FA-I1 bis FA-I8, FA-L1 bis FA-L7 |
 | `/api/goals` | fragen, ziele | Ziele | `goals.py` | `goal_questions`, `goal_options`, `goals`, `competitions` | FA-Z1 bis FA-Z5 |
 | `/api/recommendation` | generieren, abrufen | KI-Service | `recommendation.py`, `ki_service.py` | `recommendations` | FA-E1 bis FA-E7 |
 
 Alle Dateien liegen in `src/app/`. Das Datenmodell steht vollständig in
 `models.py`, der Anfangsbestand (Demo-Konten, Rückfragen) in `seed.py`.
+`garmin.py` wandelt Zeilen des Garmin-Exports in Felder des Modells um und
+kommt ohne Datenbank und Flask aus, damit es sich isoliert testen lässt.
 
 **Tabellen**
 

@@ -35,6 +35,7 @@ src/app/
   seed.py             Einrichtungskommando init-db, Demo-Konten, Rückfragen
   auth.py             Blueprint /api/auth
   trainings.py        Blueprint /api/trainings
+  garmin.py           Auswertung des Garmin-Exports, ohne Datenbank
   goals.py            Blueprint /api/goals
   recommendation.py   Blueprint /api/recommendation
   ki_service.py       einzige Stelle, die das Sprachmodell aufruft
@@ -59,6 +60,8 @@ uv run ruff format .                   Formatieren
 
  * Bezeichner in Code und Datenbank **englisch**. Oberflächentexte,
    Kommentare, Dokumentation und Commit-Messages **deutsch**.
+ * API-Fehler immer als JSON `{"error": "…"}` mit passendem Statuscode;
+   im Frontend Aufrufe nur über `apiFetch()`.
  * Validierung, Geschäftslogik und Autorisierung gehören ins Backend. Prüfungen
    im Frontend dienen nur dem Bedienkomfort (NFA-3).
  * Jeder Datenbankzugriff auf Läufe, Antworten und Empfehlungen ist auf das
