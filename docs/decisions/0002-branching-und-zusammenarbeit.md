@@ -74,4 +74,27 @@ Releases, sondern nur einen fortlaufend deployten Stand.
 
  * Ob jeder Pull Request von einer zweiten Person freigegeben werden muss,
    ist nicht festgelegt. Empfohlen ist es; GitHub kann es über eine
-   Branch-Schutzregel auf `master` auch erzwingen.
+   Branch-Schutzregel auf `master` auch erzwingen. *Entschieden, siehe
+   Nachtrag vom 03.11.2026.*
+
+## Nachtrag 2026-11-03 — Freigabe wird erzwungen
+
+Seit dem ersten Deployment auf Render (NFA-2) ist die Anwendung öffentlich
+erreichbar, und jeder Merge auf `master` geht sofort live. Bis dahin war die
+Freigabe durch eine zweite Person nur vereinbart; in der Praxis hat das Team
+sie bei allen Pull Requests (#1 bis #9) eingehalten.
+
+Das Team hat entschieden, die Vereinbarung technisch abzusichern. Auf GitHub
+gilt für `master` ein Ruleset (eingerichtet durch c-marija als Besitzerin des
+Repositorys):
+
+ * **Pull Request erforderlich**, mit mindestens **einer Freigabe**
+   (Approve) durch eine andere Person als die, die ihn geöffnet hat
+ * **Kein Force-Push** auf `master`
+ * **`master` kann nicht gelöscht werden**
+
+Folgen: Niemand kann mehr direkt auf `master` pushen — auch kein
+Coding-Agent, unabhängig von den Regeln in `AGENTS.md`. Ein Pull Request
+lässt sich erst mergen, wenn jemand anderes ihn freigegeben hat; wer allein
+arbeitet, muss also auf eine zweite Person warten. Einstellungen am Ruleset
+kann nur ändern, wer Admin-Rechte auf dem Repository hat.
