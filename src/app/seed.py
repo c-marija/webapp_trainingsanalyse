@@ -1,12 +1,17 @@
-"""Einrichtungskommando: Datenbank neu aufbauen und Anfangsbestand anlegen.
+"""Einrichtungskommandos: Tabellen und Anfangsbestand anlegen.
 
-Aufruf: uv run flask --app app init-db
+uv run flask --app app init-db
+    Löscht alle Tabellen und legt sie neu an (ADR 0003). Danach sind nur die
+    Demo-Konten und die Rückfragen vorhanden, keine Läufe. Für lokal.
 
-Achtung: Löscht alle Tabellen und legt sie neu an (ADR 0003). Danach sind
-nur die Demo-Konten und die Rückfragen vorhanden, keine Läufe.
+uv run flask --app app setup-db
+    Legt fehlende Tabellen an, den Anfangsbestand nur in eine leere
+    Datenbank. Bestehende Daten bleiben erhalten. Läuft auf Render bei jedem
+    Start (siehe Dockerfile).
 """
 
 import click
+from flask.cli import with_appcontext
 from werkzeug.security import generate_password_hash
 
 from .models import GoalOption, GoalQuestion, User, db
@@ -58,7 +63,22 @@ QUESTIONS = [
 def init_db():
     db.drop_all()
     db.create_all()
+    seed()
 
+
+def setup_db():
+    """Gibt True zurück, wenn der Anfangsbestand neu angelegt wurde."""
+    # create_all legt nur fehlende Tabellen an; bestehende bleiben, wie sie
+    # sind. Änderungen am Datenmodell brauchen weiterhin einen Neuaufbau
+    # (ADR 0003).
+    db.create_all()
+    if db.session.scalar(db.select(User.id).limit(1)) is not None:
+        return False
+    seed()
+    return True
+
+
+def seed():
     for user in DEMO_USERS:
         db.session.add(
             User(
@@ -89,6 +109,7 @@ def init_db():
 
 
 @click.command("init-db")
+@with_appcontext
 def init_db_command():
     """Datenbank neu aufbauen und Demo-Konten sowie Rückfragen anlegen."""
     init_db()
@@ -96,3 +117,13 @@ def init_db_command():
         f"Datenbank eingerichtet: {len(DEMO_USERS)} Demo-Konten, "
         f"{len(QUESTIONS)} Rückfragen."
     )
+
+
+@click.command("setup-db")
+@with_appcontext
+def setup_db_command():
+    """Fehlende Tabellen anlegen, Anfangsbestand nur in eine leere Datenbank."""
+    if setup_db():
+        click.echo("Datenbank war leer: Demo-Konten und Rückfragen angelegt.")
+    else:
+        click.echo("Datenbank enthält bereits Daten, nichts verändert.")

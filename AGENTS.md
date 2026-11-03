@@ -51,6 +51,7 @@ docs/                 Anforderungen, Architektur, Entscheide, Lerntagebuch
 ```
 uv sync --locked --all-groups          Umgebung einrichten
 uv run flask --app app init-db         Datenbank neu aufbauen (löscht alle Daten)
+uv run flask --app app setup-db        fehlende Tabellen anlegen (löscht nichts, Render)
 uv run flask --app app run --debug     lokal starten
 uv run pytest                          Tests mit Coverage
 uv run ruff check --fix .              Lint

@@ -14,4 +14,12 @@ ENV PYTHONPATH="/app/src"
 
 EXPOSE 8000
 
-CMD [ "gunicorn", "--bind", "0.0.0.0:8000", "app:app" ]
+# Beim Start zuerst fehlende Tabellen und den Anfangsbestand anlegen (löscht
+# nichts), dann Gunicorn starten.
+#  * PORT setzt Render; ohne Angabe 8000.
+#  * --timeout 180: Gemini braucht bis zu 150 Sekunden (ki_service.py),
+#    Gunicorn bricht standardmässig nach 30 Sekunden ab.
+#  * --threads 4: Während eine Anfrage auf Gemini wartet, können andere
+#    Anfragen weiterlaufen. Mit nur einem Faden wäre die ganze Anwendung so
+#    lange blockiert.
+CMD ["sh", "-c", "flask --app app setup-db && exec gunicorn --bind 0.0.0.0:${PORT:-8000} --timeout 180 --threads 4 app:app"]
