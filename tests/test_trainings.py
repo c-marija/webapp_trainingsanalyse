@@ -1,5 +1,7 @@
 """Tests für /api/trainings (FA-I1 bis FA-L7, FA-A5)."""
 
+import time
+from datetime import datetime, timedelta
 from io import BytesIO
 from pathlib import Path
 
@@ -210,3 +212,29 @@ def test_duplicates_are_checked_per_user(user_client, other_client):
     """Derselbe Export bei einem zweiten Konto ist kein Duplikat."""
     upload(user_client)
     assert upload(other_client).json["imported"] == 4
+
+
+# --- Antwortzeiten (NFA-6) --------------------------------------------------
+
+
+def test_import_500_runs_within_ten_seconds(user_client):
+    """NFA-6: 500 Läufe in höchstens 10 Sekunden importieren, Logbuch unter
+    einer Sekunde. Gemessen am 2026-11-03 mit SQLite-Datei: 0,24 s bzw. 0,03 s.
+    """
+    header, template = EXPORT.read_text(encoding="utf-8-sig").splitlines()[:2]
+    rest = template.split(",", 2)[2]  # alles nach Aktivitätstyp und Datum
+    start = datetime(2025, 1, 1, 6, 0)
+    rows = [
+        f"Laufen,{(start + timedelta(hours=17 * i)).isoformat(sep=' ')},{rest}"
+        for i in range(500)
+    ]
+    data = "\n".join([header, *rows]).encode()
+
+    began = time.perf_counter()
+    response = upload(user_client, data=data)
+    assert time.perf_counter() - began < 10
+    assert response.json["imported"] == 500
+
+    began = time.perf_counter()
+    assert user_client.get("/api/trainings").json["count"] == 500
+    assert time.perf_counter() - began < 1
