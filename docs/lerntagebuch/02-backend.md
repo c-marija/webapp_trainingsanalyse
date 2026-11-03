@@ -108,3 +108,43 @@ mit `Z` kennzeichnen; der Browser rechnet in die lokale Zeit um.
 
 **Merksatz:** Speichern in UTC, anzeigen in Ortszeit. Was lokal stimmt, muss
 auf dem Server nicht stimmen.
+
+---
+
+### 2026-11-03 — Ein Gratis-Kontingent ist keine Verfügbarkeitszusage (Team)
+
+**Ausgangslage:** Nach dem Deployment funktionierte alles ausser den
+Trainingsempfehlungen. Die Anwendung zeigte nur „Das Sprachmodell hat die
+Anfrage abgelehnt (HTTP 503)".
+
+**Was wir gelernt haben:**
+
+ * **Der Fehler lag nicht bei uns.** 503 kam von Google: Das Modell
+   `gemini-3.8-flash` war im kostenlosen Kontingent überlastet. Ein falscher
+   Schlüssel hätte 400 oder 403 ergeben, ein Netzproblem „nicht erreichbar".
+   Den Statuscode richtig zu lesen hat die Ursache eingegrenzt.
+ * **„Immer erreichbar" kann niemand versprechen**, der einen fremden Dienst
+   nutzt. Man kann Ausfälle aber seltener machen (bezahlter Dienst,
+   automatische Wiederholung) und verständlich melden.
+ * **Ein Statuscode allein hilft den Benutzern nicht.** Jede Fehlermeldung
+   sagt jetzt, was los ist und ob sich ein neuer Versuch lohnt — etwa
+   „überlastet, in ein paar Minuten nochmals" gegenüber „falsch
+   eingerichtet". Die genaue Begründung des Anbieters landet im Protokoll
+   von Render, damit wir sie sehen.
+ * **Die Kapselung hat sich ausgezahlt.** Weil nur `ki_service.py` das
+   Sprachmodell aufruft, betraf der Wechsel zu einem anderen Anbieter eine
+   Datei und ihre Tests. Prompt, Routen und Frontend blieben unverändert.
+
+**Was wir daraus gemacht haben:** Gewechselt zu Claude Haiku 5.5 über das
+offizielle SDK `anthropic`, das bei Überlastung selbst wiederholt. Die
+Abwägung (Anbieter, Modell, SDK oder `urllib`) steht in
+[0004-ki-anbieter-claude.md](../decisions/0004-ki-anbieter-claude.md). Der
+lokale Test war erfolgreich, die Antwort kam nach wenigen Sekunden statt
+nach 1,5 Minuten.
+
+**Offen geblieben:** Die Claude-API kostet ab dem ersten Aufruf. Ein
+Ausgabenlimit in der Claude Console schützt vor Überraschungen.
+
+**Merksatz:** Wer einen fremden Dienst einbindet, kann dessen Ausfälle nicht
+verhindern — nur seltener machen und verständlich melden. Eine gute
+Kapselung macht den Wechsel des Anbieters zu einer Änderung an einer Stelle.
