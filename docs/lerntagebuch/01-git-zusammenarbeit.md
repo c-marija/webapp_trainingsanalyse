@@ -95,3 +95,58 @@ GitHub erzwingen (offener Punkt in ADR 0002).
 **Merksatz:** Der Pull Request ist der einzige Kontrollpunkt zwischen „fertig
 auf meinem Rechner" und „für alle sichtbar" — und sobald Render läuft, auch
 „öffentlich deployt".
+
+---
+
+### 2026-11-03 — Branch-Schutz: zu streng ist auch falsch (Team)
+
+**Ausgangslage:** Nach dem ersten Deployment haben wir auf GitHub ein
+Ruleset für `master` eingerichtet, damit jeder Pull Request von einer zweiten
+Person freigegeben werden muss. Danach liess sich Pull Request #10 nicht
+mergen, obwohl er freigegeben war.
+
+**Was wir gelernt haben:** GitHub zeigte `APPROVED` und trotzdem
+`BLOCKED`. Genau dieser Widerspruch führte zur Ursache: Im Ruleset waren
+neben den drei gewollten Regeln auch „Restrict creations" und „Restrict
+updates" angekreuzt. „Restrict updates" heisst, dass **niemand** `master`
+verändern darf — auch nicht über einen freigegebenen Pull Request. Damit war
+der Hauptbranch eingefroren. Schutzregeln sind Verbote: Jedes zusätzliche
+Häkchen schränkt mehr ein, nicht weniger.
+
+**Was wir daraus gemacht haben:** Die zwei Häkchen entfernt. Für `master`
+gelten jetzt genau drei Regeln: Pull Request mit einer Freigabe, kein
+Force-Push, kein Löschen. Festgehalten im Nachtrag zu
+[0002-branching-und-zusammenarbeit.md](../decisions/0002-branching-und-zusammenarbeit.md).
+Nebenbei: Dass GitHub die Änderungen an `index.html` nicht anzeigen konnte,
+war ein anderes, harmloses Problem — der Diff enthielt die gelöschte
+Vue-Kopie mit rund 190 KB in wenigen sehr langen Zeilen.
+
+**Merksatz:** Bei Sicherheitseinstellungen nur ankreuzen, was man erklären
+kann. Wenn zwei Statusangaben sich widersprechen („freigegeben" und
+„blockiert"), liegt die Ursache meist in einer Regel, die man nicht bewusst
+gesetzt hat.
+
+---
+
+### 2026-11-03 — Gemergt heisst nicht deployt (Team)
+
+**Ausgangslage:** Pull Request #10 entfernte das Abzeichen „BEISPIEL". Nach
+dem Merge stand es auf der öffentlichen Seite trotzdem noch da.
+
+**Was wir gelernt haben:** Am Browser-Cache lag es nicht: Die Seite lieferte
+tatsächlich noch die alte Version aus. Bei Render war `f032b49` (#10) gar
+nicht deployt worden; live war noch #9, und zwar mit dem Vermerk „by you" —
+also von Hand ausgelöst. Auto-Deploy war nicht eingeschaltet. Unsere
+Dokumentation (ADR 0002, `AGENTS.md`) ging davon aus, dass jeder Merge auf
+`master` sofort live geht. Das stimmte nicht, und niemand hat es bemerkt,
+bis eine sichtbare Änderung ausblieb.
+
+**Was wir daraus gemacht haben:** Von Hand nachdeployt („Manual Deploy").
+Damit es nicht wieder passiert, muss Auto-Deploy bei Render unter *Settings →
+Build & Deploy* auf „On Commit" stehen. Den Live-Stand haben wir danach
+direkt geprüft: Die Seite ist von 200 KB auf 31 KB geschrumpft, das Abzeichen ist
+weg.
+
+**Merksatz:** Nach einem Merge den Live-Stand prüfen, nicht annehmen. Der
+Commit, der bei Render als „Live" angezeigt wird, ist die einzige verlässliche
+Antwort auf die Frage, was die Benutzer gerade sehen.
