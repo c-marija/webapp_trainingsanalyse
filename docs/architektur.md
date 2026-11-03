@@ -50,7 +50,7 @@ flowchart TB
         D7[("competitions")]
     end
 
-    LLM["LLM-API<br/>Gemini Flash, extern"]
+    LLM["LLM-API<br/>Claude Haiku 5.5, extern"]
 
     FE --> API
     API --> BE
@@ -78,9 +78,9 @@ Alle Dateien liegen in `src/app/`. Das Datenmodell steht vollständig in
 `garmin.py` wandelt Zeilen des Garmin-Exports in Felder des Modells um und
 kommt ohne Datenbank und Flask aus, damit es sich isoliert testen lässt.
 `validation.py` enthält Eingabeprüfungen, die mehrere Blueprints brauchen.
-`ki_service.py` ruft Gemini über die REST-API mit `urllib` aus der
-Standardbibliothek auf — ohne zusätzliche Dependency. Schlüssel und Modell
-kommen aus den Umgebungsvariablen `GEMINI_API_KEY` und `GEMINI_MODEL`.
+`ki_service.py` ruft Claude über das offizielle Python-SDK `anthropic` auf
+(ADR 0004). Der Schlüssel kommt aus der Umgebungsvariable
+`ANTHROPIC_API_KEY`, das Modell ist im Code festgelegt.
 
 **Tabellen**
 
@@ -100,7 +100,7 @@ kommen aus den Umgebungsvariablen `GEMINI_API_KEY` und `GEMINI_MODEL`.
 |---|---|---|
 | Webserver | Flask-Entwicklungsserver | Gunicorn auf Render Web Service, Region Frankfurt |
 | Datenbank | SQLite-Datei `instance/pacemaker.db`, nicht versioniert | PostgreSQL bei Render |
-| Einrichtung | `uv run flask --app app init-db` | dasselbe Kommando, einmalig nach dem Anlegen der Datenbank |
+| Einrichtung | `uv run flask --app app init-db` (löscht alle Daten) | `flask --app app setup-db` bei jedem Start, legt nur Fehlendes an (Dockerfile) |
 | Geheimnisse | `.env`, nicht versioniert | Environment Variables in Render |
 | Deployment | — | automatisch bei jedem Push auf `master` |
 

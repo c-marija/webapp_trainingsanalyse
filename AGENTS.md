@@ -21,7 +21,8 @@ Erkenntnisse des Teams stehen in `docs/lerntagebuch/`.
  * Backend: Python ≥ 3.13, Flask, Flask-SQLAlchemy, Flask-Login, Gunicorn
  * Frontend: Vue 3 über CDN, kein Build-Schritt (`src/app/static/index.html`)
  * Datenbank: SQLite lokal, PostgreSQL produktiv
- * KI: Gemini Flash, ausschliesslich über `src/app/ki_service.py`
+ * KI: Claude Haiku 5.5 über das SDK `anthropic`, ausschliesslich über
+   `src/app/ki_service.py` (ADR 0004)
  * Hosting: Render, deployt automatisch bei jedem Push auf `master`
  * Werkzeuge: `uv` für alles rund um Python, `ruff` für Lint und Format,
    `pytest` für Tests
@@ -100,7 +101,7 @@ Nur nach Rückfrage:
  * Änderungen am Datenmodell
  * Änderungen an `docs/anforderungen.md` oder an angenommenen Decision Records
  * Dateien löschen
- * Aufrufe der echten Gemini-API
+ * Aufrufe der echten Claude-API (kosten Geld)
 
 Git:
 
