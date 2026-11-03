@@ -6,8 +6,9 @@ import pytest
 from sqlalchemy.exc import IntegrityError
 from werkzeug.security import check_password_hash
 
+from app import database_url
 from app.models import GoalQuestion, Training, User, db
-from app.seed import DEMO_USERS, init_db
+from app.seed import DEMO_USERS, init_db, setup_db
 
 
 def test_index_serves_prototype(client):
@@ -77,3 +78,55 @@ def test_sqlite_enforces_foreign_keys(app_context):
     )
     with pytest.raises(IntegrityError):
         db.session.commit()
+
+
+def test_setup_db_keeps_existing_data(app_context):
+    """setup-db läuft auf Render bei jedem Start und darf nichts löschen."""
+    user_id = db.session.scalar(db.select(User.id).limit(1))
+    db.session.add(
+        Training(
+            user_id=user_id,
+            source="manuell",
+            activity_type="Laufen",
+            start_time=datetime(2026, 10, 20, 18, 0),
+            distance_km=5.0,
+            moving_time_s=1800,
+        )
+    )
+    db.session.commit()
+
+    assert setup_db() is False
+    assert db.session.scalar(db.select(db.func.count(User.id))) == 2
+    assert db.session.scalar(db.select(db.func.count(Training.id))) == 1
+
+
+def test_setup_db_seeds_empty_database(app_context):
+    """Erster Start auf Render: Datenbank ohne Tabellen."""
+    db.drop_all()
+    assert setup_db() is True
+    assert db.session.scalar(db.select(db.func.count(User.id))) == 2
+    assert db.session.scalar(db.select(db.func.count(GoalQuestion.id))) == 4
+
+
+def test_setup_db_command(app):
+    result = app.test_cli_runner().invoke(args=["setup-db"])
+    assert "nichts verändert" in result.output
+
+
+@pytest.mark.parametrize(
+    ("given", "expected"),
+    [
+        (None, "sqlite:///pacemaker.db"),
+        ("", "sqlite:///pacemaker.db"),
+        ("postgres://u:p@host/db", "postgresql+psycopg://u:p@host/db"),
+        ("postgresql://u:p@host/db", "postgresql+psycopg://u:p@host/db"),
+        ("sqlite:///andere.db", "sqlite:///andere.db"),
+    ],
+)
+def test_database_url(monkeypatch, given, expected):
+    """Render liefert postgres://, SQLAlchemy braucht den Treibernamen."""
+    if given is None:
+        monkeypatch.delenv("DATABASE_URL", raising=False)
+    else:
+        monkeypatch.setenv("DATABASE_URL", given)
+    assert database_url() == expected
