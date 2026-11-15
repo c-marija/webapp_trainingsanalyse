@@ -1,0 +1,46 @@
+# CI (ADR 0005): Tests und Lint laufen automatisch bei jedem Pull Request
+# und nach jedem Merge auf master. Ein roter Lauf sperrt den Merge
+# (Pflicht-Check im Ruleset von master), und Render deployt erst nach einem
+# grünen Lauf (Auto-Deploy "After CI Checks Pass").
+#
+# Lokal dieselben Prüfungen: siehe "Befehle" in AGENTS.md.
+
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+# Der Lauf liest nur den Code, schreibt nichts ins Repository.
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    # Dieser Name ist im Ruleset als Pflicht-Check eingetragen. Wer ihn
+    # ändert, muss auch das Ruleset anpassen, sonst bleibt jeder PR gesperrt.
+    name: Tests und Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Code holen
+        uses: actions/checkout@v5
+
+      - name: uv installieren
+        uses: astral-sh/setup-uv@v6
+
+      # Python-Version aus .python-version, Pakete exakt nach uv.lock.
+      - name: Umgebung einrichten
+        run: uv sync --locked --all-groups
+
+      - name: Lint (ruff check)
+        run: uv run ruff check .
+
+      - name: Formatierung (ruff format)
+        run: uv run ruff format --check .
+
+      # Ohne .env und ohne API-Schlüssel: Die Tests verwenden eine
+      # In-Memory-Datenbank und eine Attrappe des KI-Service.
+      - name: Tests (pytest)
+        run: uv run pytest
