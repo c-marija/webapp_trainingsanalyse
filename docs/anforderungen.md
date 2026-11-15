@@ -389,6 +389,11 @@ Zur Auswahl stehen vier vorgegebene Fragen:
  * Steigere ich meinen Umfang zu schnell?
  * Was soll ich diese Woche laufen?
 
+*Akzeptanzkriterien*
+ * Das Auswählen einer Frage allein erzeugt keine Empfehlung. Erst ein
+   ausdrücklicher Knopfdruck fragt das Sprachmodell; bis dahin bleibt die
+   bisherige Empfehlung sichtbar.
+
 **FA-E2 — Kontext aus den eigenen Daten · MUSS**
 Mit der Frage wird ein Datenkontext an das Sprachmodell übergeben:
 
