@@ -136,6 +136,15 @@ def test_prompt_contains_context(user_client, fake_ki):
     assert "33" not in prompt.split("<daten>")[1]  # älter als 12 Wochen
 
 
+def test_prompt_asks_for_plain_text(user_client, fake_ki):
+    """FA-E3: Die Antwort wird als reiner Text angezeigt, darum ohne Markdown."""
+    add_run(user_client, 1)
+    ask(user_client)
+    instructions = fake_ki[0].split("Frage:")[0]
+    assert "ohne Markdown" in instructions
+    assert "Absätzen" in instructions
+
+
 def test_prompt_contains_no_personal_data(user_client, fake_ki):
     """FA-E2: kein Name, keine E-Mail, keine Kontonummer."""
     add_run(user_client, 1)

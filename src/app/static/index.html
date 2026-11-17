@@ -129,7 +129,9 @@ fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
 .ask { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
 .ask button { text-align: left; padding: 14px 16px; border-radius: var(--radius); border: 1px solid var(--line); background: var(--surface); cursor: pointer; font-weight: 600; line-height: 1.35; }
 .ask button:hover, .ask button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
-.answer { white-space: pre-line; max-width: 68ch; }
+.ask-go { margin: 14px 0 0; }
+/* Reiner Text vom Sprachmodell: pre-line erhält Absätze und Zeilenumbrüche (FA-E3) */
+.answer { white-space: pre-line; max-width: 68ch; line-height: 1.6; }
 .answer-tag { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--warn); font-weight: 600; }
 pre.ctx { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 12px; overflow-x: auto; font-size: 12.5px; line-height: 1.45; margin: 10px 0 0; }
 .loading { color: var(--muted); }
@@ -291,12 +293,16 @@ pre.ctx { background: var(--bg); border: 1px solid var(--line); border-radius: 8
     <div class="head">
       <div>
         <h2>Trainingstipps durch KI</h2>
-        <p class="muted">Wähle eine Frage. Sie geht zusammen mit deinen Rückfragen und einer Zusammenfassung deiner Läufe an das Sprachmodell.</p>
+        <p class="muted">Wähle eine Frage und lass dir eine Antwort erzeugen. Die Frage geht zusammen mit deinen Rückfragen und einer Zusammenfassung deiner Läufe an das Sprachmodell.</p>
       </div>
     </div>
+    <!-- FA-E1: Antippen wählt nur aus; erst der Knopf fragt das Sprachmodell -->
     <div class="ask">
-      <button v-for="f in fragen" :key="f.id" :data-frage="f.id" :aria-pressed="String(tipp.laedt === f.id)" :disabled="!!tipp.laedt" @click="frageStellen(f)">{{ f.text }}</button>
+      <button v-for="f in fragen" :key="f.id" :data-frage="f.id" :aria-pressed="String(tipp.auswahl === f.id)" :disabled="tipp.laedt" @click="tipp.auswahl = f.id">{{ f.text }}</button>
     </div>
+    <p class="ask-go">
+      <button class="btn primary" id="ask-btn" :disabled="!tipp.auswahl || tipp.laedt" @click="antwortErzeugen">{{ tipp.empfehlung ? 'Neue Antwort erzeugen' : 'Antwort erzeugen' }}</button>
+    </p>
     <p class="loading" role="status" v-if="tipp.laedt">Der Coach denkt nach …</p>
     <p class="err" role="alert" v-if="tipp.fehler">{{ tipp.fehler }}</p>
     <!-- FA-E6: die letzte Empfehlung, auch nach dem Neuladen -->
@@ -310,7 +316,7 @@ pre.ctx { background: var(--bg); border: 1px solid var(--line); border-radius: 8
         <pre class="ctx">{{ tipp.empfehlung.prompt }}</pre>
       </details>
     </div>
-    <p class="muted" v-else-if="!tipp.laedt">Noch keine Empfehlung. Wähle oben eine Frage.</p>
+    <p class="muted" v-else-if="!tipp.laedt">Noch keine Empfehlung. Wähle oben eine Frage und klicke auf «Antwort erzeugen».</p>
   </section>
   </template>
 </main>
@@ -454,7 +460,7 @@ createApp({
     }
     async function abmelden() {
       await api.logout();
-      user.value = null; Object.assign(tipp, { empfehlung: null, laedt: null, fehler: '' }); importMeldung.text = '';
+      user.value = null; Object.assign(tipp, { empfehlung: null, auswahl: null, laedt: false, fehler: '' }); importMeldung.text = '';
       auth.fehler = '';
     }
     async function eingeloggt(u, startView) {
@@ -555,19 +561,22 @@ createApp({
 
     /* KI-Tipps (FA-E1 bis FA-E7) */
     const fragen = ref([]);
-    // laedt: Id der Frage, die gerade bearbeitet wird; empfehlung: die letzte (FA-E6)
-    const tipp = reactive({ empfehlung: null, laedt: null, fehler: '' });
+    // auswahl: Id der gewählten Frage; laedt: Anfrage läuft; empfehlung: die letzte (FA-E6)
+    const tipp = reactive({ empfehlung: null, auswahl: null, laedt: false, fehler: '' });
     async function ladeFragen() {
       const [f, empfehlung] = await Promise.all([api.getFragen(), api.getEmpfehlung()]);
       fragen.value = f;
       tipp.empfehlung = empfehlung;
+      // Die Frage der letzten Empfehlung vorwählen. Gespeichert ist nur ihr Text.
+      tipp.auswahl = f.find(q => q.text === empfehlung?.question)?.id ?? null;
     }
-    async function frageStellen(f) {
-      Object.assign(tipp, { laedt: f.id, fehler: '' });
+    // FA-E1: Nur dieser Knopf ruft das Sprachmodell auf, nicht das Antippen einer Frage.
+    async function antwortErzeugen() {
+      Object.assign(tipp, { laedt: true, fehler: '' });
       // FA-E5: Bei einem Fehler bleibt die bisherige Empfehlung stehen.
-      try { tipp.empfehlung = await api.askCoach(f.id); }
+      try { tipp.empfehlung = await api.askCoach(tipp.auswahl); }
       catch (e) { tipp.fehler = e.message; }
-      finally { tipp.laedt = null; }
+      finally { tipp.laedt = false; }
     }
 
     /* Start: bestehende Sitzung übernehmen, GET /api/auth/me mit dem Session-Cookie (FA-A4) */
@@ -581,7 +590,7 @@ createApp({
       auth, demoEintragen, authSenden, abmelden,
       trainings, sortKey, sortDir, sortiere, loesche, dragOver, csvInput, importMeldung, onFile, onDrop, logSummary, manuell, laufSpeichern,
       rueckfragen, antworten, kmVorschlag, wettkampf, profilGespeichert, profilFehler, profilSpeichern,
-      fragen, tipp, frageStellen,
+      fragen, tipp, antwortErzeugen,
       fmtDatum, fmtUhr, fmtKm, fmtZeit, fmtPace,
     };
   },
