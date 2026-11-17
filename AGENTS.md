@@ -23,7 +23,10 @@ Erkenntnisse des Teams stehen in `docs/lerntagebuch/`.
  * Datenbank: SQLite lokal, PostgreSQL produktiv
  * KI: Claude Haiku 5.5 über das SDK `anthropic`, ausschliesslich über
    `src/app/ki_service.py` (ADR 0004)
- * Hosting: Render, deployt automatisch bei jedem Push auf `master`
+ * Hosting: Render, deployt automatisch nach jedem Push auf `master`, sobald
+   die CI grün ist
+ * CI: GitHub Actions (`.github/workflows/tests.yml`) führt ruff und pytest
+   bei jedem Pull Request aus; ein roter Lauf sperrt den Merge (ADR 0005)
  * Werkzeuge: `uv` für alles rund um Python, `ruff` für Lint und Format,
    `pytest` für Tests
 
@@ -108,6 +111,8 @@ Git:
  * Committen und pushen nur auf ausdrückliche Aufforderung.
  * Gearbeitet wird auf Feature-Branches. Auf `master` gelangt Code nur über
    einen Pull Request — jeder Push auf `master` löst ein Deployment aus.
+ * Vor dem Push lokal `uv run ruff format .`, `uv run ruff check .` und
+   `uv run pytest` ausführen; dieselben Prüfungen laufen in der CI.
 
 Nie:
 

@@ -102,7 +102,8 @@ kommt ohne Datenbank und Flask aus, damit es sich isoliert testen lässt.
 | Datenbank | SQLite-Datei `instance/pacemaker.db`, nicht versioniert | PostgreSQL bei Render |
 | Einrichtung | `uv run flask --app app init-db` (löscht alle Daten) | `flask --app app setup-db` bei jedem Start, legt nur Fehlendes an (Dockerfile) |
 | Geheimnisse | `.env`, nicht versioniert | Environment Variables in Render |
-| Deployment | — | automatisch bei jedem Push auf `master` |
+| Tests | `uv run pytest` | GitHub Actions bei jedem Pull Request, Pflicht vor dem Merge (ADR 0005) |
+| Deployment | — | automatisch nach jedem Push auf `master`, sobald die CI grün ist |
 
 ## Änderungen gegenüber der ersten Fassung
 
