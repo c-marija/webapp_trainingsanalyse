@@ -27,8 +27,10 @@ jobs:
       - name: Code holen
         uses: actions/checkout@v5
 
+      # Genaue Version: Der Lauf ändert sich nicht unbemerkt. v10 läuft mit
+      # Node.js 24 (v6 nutzte das nicht mehr unterstützte Node.js 20).
       - name: uv installieren
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v10.3.3
 
       # Python-Version aus .python-version, Pakete exakt nach uv.lock.
       - name: Umgebung einrichten
